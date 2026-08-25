@@ -319,3 +319,6 @@ main{
   opacity:.55 !important;
   pointer-events:none !important;
 }
+
+/* V3.4.4 — bordure touches boissons légèrement renforcée */
+.product{border-width:2px !important;}

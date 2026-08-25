@@ -120,7 +120,7 @@ $('#tabs').onclick=e=>{
 (()=>{
  const grid=$('#grid');
  let startX=0,startY=0,lastX=0,lastY=0,startTime=0,target=null,tracking=false,pointerId=null;
- const TAP_MOVE=11,SWIPE_MIN=46,SWIPE_RATIO=1.25;
+ const TAP_MOVE=11,SWIPE_MIN=34,SWIPE_RATIO=1.05;
 
  grid.addEventListener('pointerdown',e=>{
    if(e.pointerType==='mouse'&&e.button!==0)return;
@@ -269,7 +269,7 @@ $('#grid').addEventListener('keydown',e=>{
  if(!zone)return;
 
  let sx=0,sy=0,active=false,pid=null;
- const SWIPE_MIN=46,SWIPE_RATIO=1.25;
+ const SWIPE_MIN=34,SWIPE_RATIO=1.05;
 
  zone.addEventListener('pointerdown',e=>{
    // La grille produits garde son gestionnaire V3.4, déjà optimisé tap/scroll/swipe.
