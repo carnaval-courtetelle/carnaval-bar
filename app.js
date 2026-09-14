@@ -24,22 +24,33 @@ function qty(id){return items.filter(x=>x.id===id).length}
 
 function productsForCat(name){
  const list=products.filter(p=>p.cat===name);
- if(name!=='alcools')return list.sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
 
- // Ordre service V3.5.2 — pensé par paires pour la grille 2 colonnes.
- const alcoholOrder=[
-   'gin','suze',
-   'mullet_tea','jager',
-   'vodka_blanche','vodka_verte',
-   'kamikaze','arrosoir',
-   'baby','whisky',
-   'bacardi','martini'
- ];
- const byId=new Map(list.map(p=>[p.id,p]));
- const ordered=alcoholOrder.map(id=>byId.get(id)).filter(Boolean);
- const reserved=new Set(alcoholOrder);
- const extras=list.filter(p=>!reserved.has(p.id));
- return [...ordered,...extras];
+ if(name==='alcools'){
+   const alcoholOrder=[
+     'gin','suze',
+     'mullet_tea','jager',
+     'vodka_blanche','vodka_verte',
+     'kamikaze','arrosoir',
+     'baby','whisky',
+     'bacardi','martini'
+   ];
+   const byId=new Map(list.map(p=>[p.id,p]));
+   const ordered=alcoholOrder.map(id=>byId.get(id)).filter(Boolean);
+   const reserved=new Set(alcoholOrder);
+   const extras=list.filter(p=>!reserved.has(p.id));
+   return [...ordered,...extras];
+ }
+
+ if(name==='shots'){
+   const shotOrder=['zekilla','berliner','xuxu','autre','tequila','plateau'];
+   const byId=new Map(list.map(p=>[p.id,p]));
+   const ordered=shotOrder.map(id=>byId.get(id)).filter(Boolean);
+   const reserved=new Set(shotOrder);
+   const extras=list.filter(p=>!reserved.has(p.id));
+   return [...ordered,...extras];
+ }
+
+ return list.sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
 }
 function hapticTap(){
  try{if(navigator.vibrate)navigator.vibrate(8)}catch{}
@@ -259,32 +270,57 @@ $('#grid').addEventListener('keydown',e=>{
 
 
 
-// V3.4.3 — retours consignes : même logique tactile sûre que les produits
+// V3.5.3 — retours consignes : tap +1, appui long −1.
 (()=>{
  const zone=document.querySelector('.returns');
  if(!zone)return;
 
- let sx=0,sy=0,target=null,active=false,pid=null;
- const TAP_MOVE=11;
+ let sx=0,sy=0,target=null,active=false,pid=null,longTimer=null,longDone=false;
+ const TAP_MOVE=11,LONG_MS=520;
+ const cancelLong=()=>{clearTimeout(longTimer);longTimer=null};
 
  zone.addEventListener('pointerdown',e=>{
    if(e.pointerType==='mouse'&&e.button!==0)return;
    const btn=e.target.closest('button[data-ret]');
    if(!btn)return;
-   sx=e.clientX;sy=e.clientY;target=btn;active=true;pid=e.pointerId;
+
+   sx=e.clientX;sy=e.clientY;target=btn;active=true;pid=e.pointerId;longDone=false;
+   cancelLong();
+
+   longTimer=setTimeout(()=>{
+     if(!active||!target)return;
+     const type=target.dataset.ret;
+     if(returns[type]<=0)return;
+
+     remember();
+     returns[type]--;
+     longDone=true;
+     target.classList.add('just-removed');
+     setTimeout(()=>target?.classList.remove('just-removed'),260);
+     hapticTap();
+     render();
+     toastMsg(type==='glass'?'Retour verre −1':'Retour grande consigne −1',700);
+   },LONG_MS);
+ },{passive:true});
+
+ zone.addEventListener('pointermove',e=>{
+   if(!active||e.pointerId!==pid)return;
+   if(Math.abs(e.clientX-sx)>TAP_MOVE||Math.abs(e.clientY-sy)>TAP_MOVE)cancelLong();
  },{passive:true});
 
  zone.addEventListener('pointercancel',()=>{
-   active=false;target=null;pid=null;
+   cancelLong();active=false;target=null;pid=null;longDone=false;
  },{passive:true});
 
  zone.addEventListener('pointerup',e=>{
    if(!active||e.pointerId!==pid)return;
+   cancelLong();
+
    const dx=Math.abs(e.clientX-sx),dy=Math.abs(e.clientY-sy);
    const btn=target;
    active=false;target=null;pid=null;
 
-   // Si le doigt a bougé, c'était un scroll/swipe: aucune consigne ajoutée.
+   if(longDone){longDone=false;return}
    if(dx>TAP_MOVE||dy>TAP_MOVE||!btn)return;
 
    remember();
@@ -295,11 +331,13 @@ $('#grid').addEventListener('keydown',e=>{
    toastMsg(type==='glass'?'−2 CHF · verre rendu':'−10 CHF · consigne rendue',650);
  });
 
- // Évite le click synthétique tactile qui doublerait l'action.
  zone.addEventListener('click',e=>{
    const btn=e.target.closest('button[data-ret]');
    if(!btn)return;
-   if(e.detail!==0)e.preventDefault();
+   if(e.detail!==0){
+     e.preventDefault();
+     e.stopPropagation();
+   }
  },true);
 })();
 
@@ -341,7 +379,7 @@ const tutorialSteps=[
  {target:'.returns button[data-ret="glass"]',title:'Retours consignes',text:'Utilise ces boutons quand le client rend ses consignes. Le montant est automatiquement déduit.',side:'top'},
  {target:'#cart',title:'Commande à préparer',text:'Ouvre ici la commande à préparer : elle est sans prix, regroupée par catégories, et tu peux corriger les quantités avant le paiement.',side:'top'},
  {target:'#pay',title:'Encaisser',text:'PAYER ouvre Cash ou TWINT. Le QR TWINT s’affiche directement dans la fenêtre de paiement.',side:'top'},
- {target:null,title:'Installer comme une application',text:'iPhone : Safari → Partager → Sur l’écran d’accueil → Ajouter.\\n\\nAndroid / Samsung : menu du navigateur → Ajouter à l’écran d’accueil ou Installer l’application.',side:'center'}
+ {target:null,title:'Installer comme une application',text:'iPhone : ouvre cette page dans Safari. Appuie sur le bouton Partager (le carré avec une flèche vers le haut), fais défiler le menu puis touche « Sur l’écran d’accueil ». Termine avec « Ajouter » en haut à droite.\\n\\nAndroid / Samsung : ouvre cette page dans Chrome ou Samsung Internet. Appuie sur le menu ⋮, puis sur « Ajouter à l’écran d’accueil » ou « Installer l’application ». Confirme l’installation.\\n\\nUne icône Bar Carnaval apparaîtra ensuite sur ton écran d’accueil : tu pourras lancer l’app directement depuis là.',side:'center'}
 ];
 let tutorialStep=0,tutorialOpen=false,tutorialPrevCat=null,tutorialScrollY=0;
 

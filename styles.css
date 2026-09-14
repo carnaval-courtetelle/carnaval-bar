@@ -631,3 +631,14 @@ body.tutorial-active{overscroll-behavior:none}
   transform:none !important;
   opacity:1 !important;
 }
+
+
+/* V3.5.3 — feedback d'un retrait par appui long sur les consignes */
+.return-card.just-removed{
+  animation:returnRemovePulse .26s ease;
+}
+@keyframes returnRemovePulse{
+  0%{transform:scale(1)}
+  45%{transform:scale(.95);filter:brightness(.74)}
+  100%{transform:scale(1)}
+}
