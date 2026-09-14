@@ -23,20 +23,23 @@ function total(){return items.reduce((s,x)=>s+x.price+x.deposit,0)-returns.glass
 function qty(id){return items.filter(x=>x.id===id).length}
 
 function productsForCat(name){
- const list=products.filter(p=>p.cat===name).sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
- if(name!=='alcools')return list;
+ const list=products.filter(p=>p.cat===name);
+ if(name!=='alcools')return list.sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
 
- // Exceptions d'affichage demandées: Baby + Whisky sur la même ligne,
- // puis Verre de Kamikaze + Arrosoir Kamikaze côte à côte.
- const byId=id=>list.find(p=>p.id===id);
- const fixedTop=['baby','whisky'].map(byId).filter(Boolean);
- const kamikazePair=['kamikaze','arrosoir'].map(byId).filter(Boolean);
- const reserved=new Set([...fixedTop,...kamikazePair].map(p=>p.id));
- const rest=list.filter(p=>!reserved.has(p.id));
-
- if(kamikazePair.length!==2)return [...fixedTop,...rest,...kamikazePair];
- const insertAt=Math.min(8,rest.length-(rest.length%2));
- return [...fixedTop,...rest.slice(0,insertAt),...kamikazePair,...rest.slice(insertAt)];
+ // Ordre service V3.5.2 — pensé par paires pour la grille 2 colonnes.
+ const alcoholOrder=[
+   'gin','suze',
+   'mullet_tea','jager',
+   'vodka_blanche','vodka_verte',
+   'kamikaze','arrosoir',
+   'baby','whisky',
+   'bacardi','martini'
+ ];
+ const byId=new Map(list.map(p=>[p.id,p]));
+ const ordered=alcoholOrder.map(id=>byId.get(id)).filter(Boolean);
+ const reserved=new Set(alcoholOrder);
+ const extras=list.filter(p=>!reserved.has(p.id));
+ return [...ordered,...extras];
 }
 function hapticTap(){
  try{if(navigator.vibrate)navigator.vibrate(8)}catch{}
@@ -120,14 +123,7 @@ $('#tabs').onclick=e=>{
  if(b)changeCat(b.dataset.cat,0);
 };
 
-// Gestion tactile V3.5 : tap rapide, appui long −1, scroll vertical prioritaire et swipe visuel.
-function setSwipePreview(dx){
- const limited=Math.max(-90,Math.min(90,dx*.42));
- ['#grid','.returns'].forEach(sel=>{const el=$(sel);if(el){el.style.transition='none';el.style.transform=`translateX(${limited}px)`;el.style.opacity=String(1-Math.min(.16,Math.abs(limited)/560))}});
-}
-function clearSwipePreview(animate=true){
- ['#grid','.returns'].forEach(sel=>{const el=$(sel);if(el){el.style.transition=animate?'transform .16s ease, opacity .16s ease':'none';el.style.transform='translateX(0)';el.style.opacity='1'}});
-}
+// Gestion tactile V3.5.2 : tap rapide, appui long −1, scroll vertical prioritaire et swipe stable V3.4.4.
 function removeOneProduct(id){
  const idx=items.findLastIndex(x=>x.id===id);
  if(idx<0){toastMsg('Aucun article à retirer',650);return false}
@@ -148,7 +144,10 @@ function removeOneProduct(id){
      longTimer=setTimeout(()=>{
        if(!tracking||!target)return;
        longDone=removeOneProduct(target.dataset.id);
-       if(longDone){target.classList.add('just-removed');setTimeout(()=>target?.classList.remove('just-removed'),260)}
+       if(longDone){
+         target.classList.add('just-removed');
+         setTimeout(()=>target?.classList.remove('just-removed'),260);
+       }
      },LONG_MS);
    }
  },{passive:true});
@@ -156,34 +155,40 @@ function removeOneProduct(id){
  grid.addEventListener('pointermove',e=>{
    if(!tracking||e.pointerId!==pointerId)return;
    lastX=e.clientX;lastY=e.clientY;
-   const dx=lastX-startX,dy=lastY-startY,adx=Math.abs(dx),ady=Math.abs(dy);
+   const adx=Math.abs(lastX-startX),ady=Math.abs(lastY-startY);
    if(adx>TAP_MOVE||ady>TAP_MOVE)cancelLong();
-   if(adx>8&&adx>ady*1.02)setSwipePreview(dx);else if(ady>adx)clearSwipePreview(false);
  },{passive:true});
 
- grid.addEventListener('pointercancel',()=>{cancelLong();clearSwipePreview();tracking=false;target=null;pointerId=null;longDone=false},{passive:true});
+ grid.addEventListener('pointercancel',()=>{
+   cancelLong();tracking=false;target=null;pointerId=null;longDone=false;
+ },{passive:true});
 
  grid.addEventListener('pointerup',e=>{
    if(!tracking||e.pointerId!==pointerId)return;
    cancelLong();lastX=e.clientX;lastY=e.clientY;
    const dx=lastX-startX,dy=lastY-startY,adx=Math.abs(dx),ady=Math.abs(dy);
-   tracking=false;pointerId=null;clearSwipePreview();
+   tracking=false;pointerId=null;
 
    if(longDone){longDone=false;target=null;return}
+
+   // Même logique de swipe que la V3.4.4 : aucun déplacement visuel pendant le geste.
    if(adx>=SWIPE_MIN&&adx>ady*SWIPE_RATIO){
      const i=cats.findIndex(c=>c[0]===cat);
      const ni=dx<0?Math.min(cats.length-1,i+1):Math.max(0,i-1);
      if(ni!==i)changeCat(cats[ni][0],dx<0?-1:1);
      target=null;return;
    }
+
+   // Scroll vertical/diagonal = aucune activation.
    if(adx>TAP_MOVE||ady>TAP_MOVE){target=null;return}
    if(!target)return;
+
    const p=products.find(x=>x.id===target.dataset.id);
    target=null;
    if(p)openProduct(p,null);
  },{passive:true});
 
- // Bloque systématiquement les clicks synthétiques tactiles Samsung/Android.
+ // Bloque les clicks synthétiques tactiles Samsung/Android pour éviter un double ajout.
  grid.addEventListener('click',e=>{
    const b=e.target.closest('.product');if(!b)return;
    if(e.detail===0)return; // clavier géré séparément
@@ -210,9 +215,9 @@ function cartRender(){
 function returnLine(type,label,n){return `<div class="prep-line prep-return" data-return="${type}"><div class="prep-qty">×${n}</div><div class="prep-name"><b>${label}</b></div><div class="line-actions"><button data-retact="minus">−</button><button data-retact="plus">+</button><button class="trash" data-retact="trash">×</button></div></div>`}
 $('#cart').onclick=()=>{cartRender();$('#cartDlg').showModal()};
 $('#lines').onclick=e=>{const rb=e.target.closest('button[data-retact]');if(rb){remember();const type=rb.closest('[data-return]').dataset.return;if(rb.dataset.retact==='plus')returns[type]++;if(rb.dataset.retact==='minus')returns[type]=Math.max(0,returns[type]-1);if(rb.dataset.retact==='trash')returns[type]=0;render();cartRender();return}const btn=e.target.closest('button[data-act]');if(!btn)return;const key=decodeURIComponent(btn.closest('[data-key]').dataset.key),g=groupItems().find(x=>x.key===key);if(!g)return;remember();if(btn.dataset.act==='plus'){const p=products.find(x=>x.id===g.id);items.push({...p,soft:g.soft||''})}if(btn.dataset.act==='minus'){const idx=items.findLastIndex(x=>x.id===g.id&&(x.soft||'')===(g.soft||''));if(idx>=0)items.splice(idx,1)}if(btn.dataset.act==='trash')items=items.filter(x=>!(x.id===g.id&&(x.soft||'')===(g.soft||'')));render();cartRender()};
-$('#pay').onclick=()=>{setPaymentLocked(false);$('#payTotal').innerHTML=`<span>À ENCAISSER</span><b>${money(total())}</b>`;$('#cashBox').hidden=true;$('#twintBox').hidden=true;$('#given').value='';$('#change').textContent='';$('#payDlg').showModal()};
-$('#cash').onclick=()=>{$('#cashBox').hidden=false;$('#twintBox').hidden=true;setTimeout(()=>$('#given').focus(),80)};
-$('#twint').onclick=()=>{$('#cashBox').hidden=true;$('#twintBox').hidden=false};
+$('#pay').onclick=()=>{setPaymentLocked(false);$('#payDlg').classList.remove('twint-mode');$('#payTotal').innerHTML=`<span>À ENCAISSER</span><b>${money(total())}</b>`;$('#cashBox').hidden=true;$('#twintBox').hidden=true;$('#given').value='';$('#change').textContent='';$('#payDlg').showModal()};
+$('#cash').onclick=()=>{$('#payDlg').classList.remove('twint-mode');$('#cashBox').hidden=false;$('#twintBox').hidden=true;setTimeout(()=>$('#given').focus(),80)};
+$('#twint').onclick=()=>{$('#payDlg').classList.add('twint-mode');$('#cashBox').hidden=true;$('#twintBox').hidden=false};
 $$('[data-given]').forEach(b=>b.onclick=()=>{const cur=parseFloat(($('#given').value||'').replace(',','.'))||0;$('#given').value=cur+Number(b.dataset.given);calcChange()});
 function calcChange(){const g=parseFloat($('#given').value.replace(',','.'));$('#change').textContent=isNaN(g)?'':g>=total()?`À RENDRE : ${money(g-total())}`:`IL MANQUE : ${money(total()-g)}`}
 $('#given').oninput=calcChange;
@@ -231,8 +236,17 @@ function finish(type){
 }
 $('#confirmCash').onclick=()=>finish('CASH');$('#confirmTwint').onclick=()=>finish('TWINT');
 $$('[data-close]').forEach(b=>b.onclick=()=>$('#'+b.dataset.close).close());
-function renderHistory(){const all=orders(),os=all.slice().reverse().slice(0,20);$('#historyList').innerHTML=os.length?os.map((o,i)=>{const d=new Date(o.date),time=d.toLocaleString('fr-CH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});return `<button class="history-card" data-order-index="${all.length-1-i}"><span><b>${time}</b><small>${o.type} · ${o.items.length} article(s)</small></span><strong>${money(o.total)}</strong></button>`}).join(''):'<p class="muted">Aucune commande enregistrée.</p>'}
+function renderHistory(){const all=orders(),os=all.slice().reverse().slice(0,20);$('#historyList').innerHTML=os.length?os.map((o,i)=>{const d=new Date(o.date),time=d.toLocaleString('fr-CH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});return `<button class="history-card" data-order-index="${all.length-1-i}"><span><b>${time}</b><small>${o.type} · ${o.items.length} article(s)</small></span><strong>${money(o.total)}</strong></button>`}).join(''):'<p class="muted">Aucune commande enregistrée.</p>';$('#clearHistoryBtn').disabled=!all.length}
 $('#historyBtn').onclick=()=>{renderHistory();$('#historyDlg').showModal()};
+$('#clearHistoryBtn').onclick=()=>{
+ const all=orders();
+ if(!all.length){toastMsg('Historique déjà vide',900);return}
+ if(!confirm('Supprimer tout l’historique de cet appareil ?'))return;
+ localStorage.removeItem('cg_orders_v3');
+ renderHistory();
+ toastMsg('Historique vidé',1000);
+};
+
 $('#historyList').onclick=e=>{const b=e.target.closest('[data-order-index]');if(!b)return;const o=orders()[Number(b.dataset.orderIndex)];if(!o)return;const lines={};o.items.forEach(i=>{const k=i.name+'|'+(i.soft||'');if(!lines[k])lines[k]={...i,n:0};lines[k].n++});let html=`<div class="order-meta"><b>${new Date(o.date).toLocaleString('fr-CH')}</b><span>${o.type} · ${money(o.total)}</span></div>`;html+=Object.values(lines).map(i=>`<div class="detail-row"><span>${i.n}× ${i.name}${i.soft?' → '+i.soft:''}</span><b>${money(i.n*(i.price+i.deposit))}</b></div>`).join('');if(o.returns?.glass)html+=`<div class="detail-row"><span>Retour verres ×${o.returns.glass}</span><b>−${money(o.returns.glass*2)}</b></div>`;if(o.returns?.large)html+=`<div class="detail-row"><span>Retour grands formats ×${o.returns.large}</span><b>−${money(o.returns.large*10)}</b></div>`;$('#orderDetail').innerHTML=html;$('#orderDetailDlg').showModal()};
 
 $('#grid').addEventListener('keydown',e=>{
@@ -290,27 +304,25 @@ $('#grid').addEventListener('keydown',e=>{
 })();
 
 
-// V3.5 — swipe horizontal dans toute la zone centrale, avec suivi du doigt.
+// V3.5.2 — swipe horizontal global restauré sur la logique stable V3.4.4.
 (()=>{
  const zone=document.querySelector('.app');if(!zone)return;
  let sx=0,sy=0,active=false,pid=null;
  const SWIPE_MIN=34,SWIPE_RATIO=1.05;
+
  zone.addEventListener('pointerdown',e=>{
-   if(e.target.closest('#grid'))return;
-   if(e.target.closest('header,nav,footer,dialog'))return;
+   if(e.target.closest('#grid'))return; // la grille a déjà son propre gestionnaire
+   if(e.target.closest('header,nav,footer,dialog,.tutorial-guide'))return;
    if(e.pointerType==='mouse'&&e.button!==0)return;
    sx=e.clientX;sy=e.clientY;active=true;pid=e.pointerId;
  },{passive:true});
- zone.addEventListener('pointermove',e=>{
-   if(!active||e.pointerId!==pid)return;
-   const dx=e.clientX-sx,dy=e.clientY-sy,adx=Math.abs(dx),ady=Math.abs(dy);
-   if(adx>8&&adx>ady*1.02)setSwipePreview(dx);else if(ady>adx)clearSwipePreview(false);
- },{passive:true});
- zone.addEventListener('pointercancel',()=>{active=false;pid=null;clearSwipePreview()},{passive:true});
+
+ zone.addEventListener('pointercancel',()=>{active=false;pid=null},{passive:true});
+
  zone.addEventListener('pointerup',e=>{
    if(!active||e.pointerId!==pid)return;
    const dx=e.clientX-sx,dy=e.clientY-sy,adx=Math.abs(dx),ady=Math.abs(dy);
-   active=false;pid=null;clearSwipePreview();
+   active=false;pid=null;
    if(adx<SWIPE_MIN||adx<=ady*SWIPE_RATIO)return;
    const i=cats.findIndex(c=>c[0]===cat);
    const ni=dx<0?Math.min(cats.length-1,i+1):Math.max(0,i-1);
@@ -320,32 +332,117 @@ $('#grid').addEventListener('keydown',e=>{
 
 // Evite le zoom iOS lors des taps rapides.
 let lastTouchEnd=0;document.addEventListener('touchend',e=>{if(!e.target.closest('button'))return;const now=Date.now();if(now-lastTouchEnd<=300)e.preventDefault();lastTouchEnd=now},{passive:false});
-// Tutoriel V3.5 — affiché une seule fois par appareil, relançable avec le bouton ?.
+// Tutoriel guidé V3.5.2 — flèches et repères directement sur l'application.
 const tutorialSteps=[
- {icon:'👆',title:'Ajouter une boisson',text:'Un tap sur une boisson l’ajoute. Sur un alcool avec accompagnement, le choix du soft s’ouvre toujours avant l’ajout.'},
- {icon:'↔️',title:'Changer de catégorie',text:'Utilise les onglets ou glisse horizontalement. La page suit ton doigt pendant le swipe.'},
- {icon:'↩️',title:'Retours consignes',text:'En bas des produits, utilise VERRE −2 CHF ou PLATEAU · ARROSOIR · PICHET −10 CHF. Le compteur indique combien de consignes sont rendues.'},
- {icon:'🧾',title:'Commande à préparer',text:'Appuie sur « Voir la commande ». Elle est affichée sans prix, regroupée par catégories. Tu peux ajouter, retirer ou supprimer une ligne avant le paiement.'},
- {icon:'➖',title:'Corriger rapidement',text:'Maintiens un bouton produit appuyé environ une demi-seconde pour retirer directement une unité. Un message −1 confirme le retrait.'},
- {icon:'💳',title:'Encaisser',text:'Appuie sur PAYER, puis Cash ou TWINT. Pour TWINT, affiche le QR, laisse le client scanner et saisis le montant indiqué à l’écran.'}
+ {target:'#grid .product',cat:'softs',title:'Ajouter une boisson',text:'Un tap sur une boisson l’ajoute directement à la commande.',side:'bottom'},
+ {target:'nav button[data-cat="alcools"]',title:'Changer de catégorie',text:'Utilise les onglets ou swipe horizontalement pour passer d’une catégorie à l’autre.',side:'bottom'},
+ {target:'#grid .product[data-id="gin"]',cat:'alcools',title:'Choisir le soft',text:'Pour les alcools concernés, touche le produit puis choisis le soft. Il ne peut pas être ajouté sans cette étape.',side:'bottom'},
+ {target:'#grid .product[data-id="gin"]',cat:'alcools',title:'Retirer rapidement',text:'Maintiens un produit environ une demi-seconde pour retirer directement une unité.',side:'bottom'},
+ {target:'.returns button[data-ret="glass"]',title:'Retours consignes',text:'Utilise ces boutons quand le client rend ses consignes. Le montant est automatiquement déduit.',side:'top'},
+ {target:'#cart',title:'Commande à préparer',text:'Ouvre ici la commande à préparer : elle est sans prix, regroupée par catégories, et tu peux corriger les quantités avant le paiement.',side:'top'},
+ {target:'#pay',title:'Encaisser',text:'PAYER ouvre Cash ou TWINT. Le QR TWINT s’affiche directement dans la fenêtre de paiement.',side:'top'},
+ {target:null,title:'Installer comme une application',text:'iPhone : Safari → Partager → Sur l’écran d’accueil → Ajouter.\\n\\nAndroid / Samsung : menu du navigateur → Ajouter à l’écran d’accueil ou Installer l’application.',side:'center'}
 ];
-let tutorialStep=0;
-function renderTutorial(){
- const s=tutorialSteps[tutorialStep];
+let tutorialStep=0,tutorialOpen=false,tutorialPrevCat=null,tutorialScrollY=0;
+
+function tutorialEls(){
+ return {
+  guide:$('#tutorialGuide'),focus:$('#tutorialFocus'),arrow:$('#tutorialArrow'),bubble:$('#tutorialBubble')
+ };
+}
+function positionTutorial(){
+ if(!tutorialOpen)return;
+ const s=tutorialSteps[tutorialStep],{focus,arrow,bubble}=tutorialEls();
+ const target=s.target?document.querySelector(s.target):null;
+
  $('#tutorialStepLabel').textContent=`${tutorialStep+1} / ${tutorialSteps.length}`;
  $('#tutorialProgressBar').style.width=`${(tutorialStep+1)/tutorialSteps.length*100}%`;
- $('#tutorialContent').innerHTML=`<div class="tutorial-icon">${s.icon}</div><h3>${s.title}</h3><p>${s.text}</p>`;
+ $('#tutorialTitle').textContent=s.title;
+ $('#tutorialText').textContent=s.text;
  $('#tutorialPrev').hidden=tutorialStep===0;
  $('#tutorialNext').textContent=tutorialStep===tutorialSteps.length-1?'TERMINER ✓':'Suivant →';
+
+ if(!target){
+   focus.hidden=true;arrow.hidden=true;
+   bubble.classList.add('tutorial-centered');
+   bubble.style.left='50%';bubble.style.top='50%';
+   bubble.style.transform='translate(-50%,-50%)';
+   return;
+ }
+
+ bubble.classList.remove('tutorial-centered');
+ focus.hidden=false;arrow.hidden=false;
+
+ const r=target.getBoundingClientRect();
+ const pad=7;
+ focus.style.left=(r.left-pad)+'px';
+ focus.style.top=(r.top-pad)+'px';
+ focus.style.width=(r.width+pad*2)+'px';
+ focus.style.height=(r.height+pad*2)+'px';
+
+ // Positionne la bulle sous ou au-dessus de la cible selon la place disponible.
+ const vw=window.innerWidth,vh=window.innerHeight;
+ bubble.style.transform='';
+ bubble.style.left='12px';
+ bubble.style.right='12px';
+ bubble.style.width='auto';
+
+ const bubbleH=Math.min(270,bubble.offsetHeight||230);
+ let side=s.side;
+ if(side==='bottom' && r.bottom+bubbleH+28>vh)side='top';
+ if(side==='top' && r.top-bubbleH-28<8)side='bottom';
+
+ if(side==='top'){
+   bubble.style.top='auto';
+   bubble.style.bottom=Math.max(12,vh-r.top+18)+'px';
+   arrow.textContent='➜';
+   arrow.style.left=Math.min(vw-42,Math.max(10,r.left+r.width/2-16))+'px';
+   arrow.style.top=Math.max(8,r.top-44)+'px';
+   arrow.style.transform='rotate(90deg)';
+ }else{
+   bubble.style.bottom='auto';
+   bubble.style.top=Math.min(vh-210,r.bottom+22)+'px';
+   arrow.textContent='➜';
+   arrow.style.left=Math.min(vw-42,Math.max(10,r.left+r.width/2-16))+'px';
+   arrow.style.top=Math.min(vh-48,r.bottom+2)+'px';
+   arrow.style.transform='rotate(-90deg)';
+ }
 }
-function openTutorial(){tutorialStep=0;renderTutorial();$('#tutorialDlg').showModal()}
-function closeTutorial(markSeen=true){if(markSeen)localStorage.setItem('cg_tutorial_v35_seen','1');if($('#tutorialDlg').open)$('#tutorialDlg').close()}
+function prepareTutorialStep(){
+ const s=tutorialSteps[tutorialStep];
+ if(s.cat&&cat!==s.cat)changeCat(s.cat,0);
+
+ requestAnimationFrame(()=>{
+   const target=s.target?document.querySelector(s.target):null;
+   if(target && !target.closest('footer,header,nav')){
+     target.scrollIntoView({behavior:'auto',block:'center',inline:'nearest'});
+   }
+   setTimeout(positionTutorial,40);
+ });
+}
+function openTutorial(){
+ if(tutorialOpen)return;
+ tutorialOpen=true;tutorialStep=0;tutorialPrevCat=cat;tutorialScrollY=window.scrollY;
+ $('#tutorialGuide').hidden=false;
+ document.body.classList.add('tutorial-active');
+ prepareTutorialStep();
+}
+function closeTutorial(markSeen=true){
+ if(markSeen)localStorage.setItem('cg_tutorial_v352_seen','1');
+ tutorialOpen=false;
+ $('#tutorialGuide').hidden=true;
+ document.body.classList.remove('tutorial-active');
+ if(tutorialPrevCat&&cat!==tutorialPrevCat)changeCat(tutorialPrevCat,0);
+ window.scrollTo({top:tutorialScrollY,behavior:'auto'});
+}
 $('#helpBtn').onclick=openTutorial;
-$('#tutorialNext').onclick=()=>{if(tutorialStep<tutorialSteps.length-1){tutorialStep++;renderTutorial()}else closeTutorial(true)};
-$('#tutorialPrev').onclick=()=>{if(tutorialStep>0){tutorialStep--;renderTutorial()}};
+$('#tutorialNext').onclick=()=>{if(tutorialStep<tutorialSteps.length-1){tutorialStep++;prepareTutorialStep()}else closeTutorial(true)};
+$('#tutorialPrev').onclick=()=>{if(tutorialStep>0){tutorialStep--;prepareTutorialStep()}};
 $('#tutorialSkip').onclick=()=>closeTutorial(true);
 $('#tutorialClose').onclick=()=>closeTutorial(true);
-setTimeout(()=>{if(!localStorage.getItem('cg_tutorial_v35_seen'))openTutorial()},450);
+window.addEventListener('resize',()=>{if(tutorialOpen)positionTutorial()});
+window.addEventListener('scroll',()=>{if(tutorialOpen)positionTutorial()},{passive:true});
+setTimeout(()=>{if(!localStorage.getItem('cg_tutorial_v352_seen'))openTutorial()},500);
 
 // Mise à jour PWA contrôlée : jamais de recharge forcée en pleine commande.
 let swReg=null;function offerUpdate(reg){swReg=reg;$('#updateBar').hidden=false}if('serviceWorker'in navigator){navigator.serviceWorker.register('sw.js').then(reg=>{swReg=reg;if(reg.waiting)offerUpdate(reg);reg.addEventListener('updatefound',()=>{const nw=reg.installing;nw?.addEventListener('statechange',()=>{if(nw.state==='installed'&&navigator.serviceWorker.controller)offerUpdate(reg)})});setInterval(()=>reg.update(),5*60*1000)});navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload())}

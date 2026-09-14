@@ -15,7 +15,7 @@
 <div class="app">
   <header>
     <img src="logo.png" alt="Carnaval Guégueleville">
-    <div class="brand"><b>BAR CARNAVAL</b><small>Guégueleville · <span class="version">v3.5</span></small></div>
+    <div class="brand"><b>BAR CARNAVAL</b><small>Guégueleville · <span class="version">v3.5.2</span></small></div>
     <div class="header-actions"><button id="helpBtn" class="icon-btn" aria-label="Aide" title="Aide">?</button><button id="undoBtn" class="icon-btn" aria-label="Annuler la dernière action" title="Annuler">↩</button><button id="historyBtn" class="icon-btn" aria-label="Historique">🕘</button></div>
   </header>
 
@@ -23,9 +23,17 @@
   <main id="grid"></main>
 
   <section class="returns">
-    <b>↩ RETOURS CONSIGNES</b>
-    <button data-ret="glass"><span>Verre</span><strong>−2 CHF</strong><em id="retGlassQty"></em></button>
-    <button data-ret="large"><span>Plateau · Arrosoir · Pichet</span><strong>−10 CHF</strong><em id="retLargeQty"></em></button>
+    <div class="returns-head"><span class="returns-mark">↩</span><b>RETOURS CONSIGNES</b><small>À déduire</small></div>
+    <button data-ret="glass" class="return-card return-glass">
+      <span class="return-arrow">↩</span>
+      <span class="return-copy"><span>VERRE</span><strong>−2 CHF</strong></span>
+      <em id="retGlassQty"></em>
+    </button>
+    <button data-ret="large" class="return-card return-large">
+      <span class="return-arrow">↩</span>
+      <span class="return-copy"><span>PLATEAU · ARROSOIR · PICHET</span><strong>−10 CHF</strong></span>
+      <em id="retLargeQty"></em>
+    </button>
   </section>
 
   <footer>
@@ -47,6 +55,7 @@
     <div class="sheet-head"><h2>Historique récent</h2><button class="x" data-close="historyDlg">×</button></div>
     <p class="muted">Les dernières commandes de ce téléphone.</p>
     <div id="historyList" class="history-list"></div>
+    <button id="clearHistoryBtn" class="history-clear danger">Vider l’historique</button>
   </div>
 </dialog>
 
@@ -86,22 +95,28 @@
       <div id="change"></div>
       <button id="confirmCash" class="primary payment-confirm">✓ VALIDER CASH</button>
     </div>
-    <div id="twintBox" hidden class="twint-box"><img class="twint-qr" src="qr-twint.jpeg" alt="QR TWINT Société de carnaval"><b>TWINT</b><small>Le client scanne ce QR puis saisit le montant affiché ci-dessus.</small><button id="confirmTwint" class="primary payment-confirm">✓ VALIDER TWINT</button></div>
+    <div id="twintBox" hidden class="twint-box"><img class="twint-qr" src="qr-twint.png" alt="QR TWINT Société de carnaval"><b>TWINT</b><small>Le client scanne ce QR puis saisit le montant affiché ci-dessus.</small><button id="confirmTwint" class="primary payment-confirm">✓ VALIDER TWINT</button></div>
   </div>
 </dialog>
 
-<dialog id="tutorialDlg" class="tutorial-dialog">
-  <div class="sheet tutorial-sheet">
-    <div class="sheet-head"><h2>AIDE · BAR CARNAVAL</h2><button class="x" id="tutorialClose" aria-label="Fermer">×</button></div>
-    <div class="tutorial-progress"><span id="tutorialStepLabel">1 / 6</span><div><i id="tutorialProgressBar"></i></div></div>
-    <div id="tutorialContent" class="tutorial-content"></div>
+<div id="tutorialGuide" class="tutorial-guide" hidden>
+  <div id="tutorialFocus" class="tutorial-focus"></div>
+  <div id="tutorialArrow" class="tutorial-arrow">➜</div>
+  <div id="tutorialBubble" class="tutorial-bubble">
+    <div class="tutorial-guide-head">
+      <span id="tutorialStepLabel">1 / 8</span>
+      <button id="tutorialClose" aria-label="Fermer le tutoriel">×</button>
+    </div>
+    <div class="tutorial-mini-progress"><i id="tutorialProgressBar"></i></div>
+    <h3 id="tutorialTitle"></h3>
+    <p id="tutorialText"></p>
     <div class="tutorial-actions">
       <button id="tutorialSkip" class="secondary">Passer</button>
       <button id="tutorialPrev" class="secondary">← Retour</button>
       <button id="tutorialNext" class="primary">Suivant →</button>
     </div>
   </div>
-</dialog>
+</div>
 
 <div id="updateBar" class="update-bar" hidden><span>Nouvelle version disponible</span><button id="updateBtn">METTRE À JOUR</button></div>
 <div id="toast"></div>
