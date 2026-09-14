@@ -25,14 +25,18 @@ function qty(id){return items.filter(x=>x.id===id).length}
 function productsForCat(name){
  const list=products.filter(p=>p.cat===name).sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
  if(name!=='alcools')return list;
- const pairIds=['kamikaze','arrosoir'];
- const pair=pairIds.map(id=>list.find(p=>p.id===id)).filter(Boolean);
- if(pair.length!==2)return list;
- const rest=list.filter(p=>!pairIds.includes(p.id));
- // 2 colonnes sur téléphone: on insère la paire après un nombre pair d'éléments
- // pour que Verre de Kamikaze + Arrosoir restent côte à côte.
+
+ // Exceptions d'affichage demandées: Baby + Whisky sur la même ligne,
+ // puis Verre de Kamikaze + Arrosoir Kamikaze côte à côte.
+ const byId=id=>list.find(p=>p.id===id);
+ const fixedTop=['baby','whisky'].map(byId).filter(Boolean);
+ const kamikazePair=['kamikaze','arrosoir'].map(byId).filter(Boolean);
+ const reserved=new Set([...fixedTop,...kamikazePair].map(p=>p.id));
+ const rest=list.filter(p=>!reserved.has(p.id));
+
+ if(kamikazePair.length!==2)return [...fixedTop,...rest,...kamikazePair];
  const insertAt=Math.min(8,rest.length-(rest.length%2));
- return [...rest.slice(0,insertAt),...pair,...rest.slice(insertAt)];
+ return [...fixedTop,...rest.slice(0,insertAt),...kamikazePair,...rest.slice(insertAt)];
 }
 function hapticTap(){
  try{if(navigator.vibrate)navigator.vibrate(8)}catch{}
@@ -116,55 +120,78 @@ $('#tabs').onclick=e=>{
  if(b)changeCat(b.dataset.cat,0);
 };
 
-// Gestion tactile V3.4 : tap rapide, scroll vertical prioritaire, swipe horizontal de catégorie.
+// Gestion tactile V3.5 : tap rapide, appui long −1, scroll vertical prioritaire et swipe visuel.
+function setSwipePreview(dx){
+ const limited=Math.max(-90,Math.min(90,dx*.42));
+ ['#grid','.returns'].forEach(sel=>{const el=$(sel);if(el){el.style.transition='none';el.style.transform=`translateX(${limited}px)`;el.style.opacity=String(1-Math.min(.16,Math.abs(limited)/560))}});
+}
+function clearSwipePreview(animate=true){
+ ['#grid','.returns'].forEach(sel=>{const el=$(sel);if(el){el.style.transition=animate?'transform .16s ease, opacity .16s ease':'none';el.style.transform='translateX(0)';el.style.opacity='1'}});
+}
+function removeOneProduct(id){
+ const idx=items.findLastIndex(x=>x.id===id);
+ if(idx<0){toastMsg('Aucun article à retirer',650);return false}
+ const removed=items[idx];remember();items.splice(idx,1);updateSummary();updateProductQty(id);hapticTap();toastMsg(`−1 ${removed.name}${removed.soft?' · '+removed.soft:''}`,650);return true;
+}
 (()=>{
  const grid=$('#grid');
- let startX=0,startY=0,lastX=0,lastY=0,startTime=0,target=null,tracking=false,pointerId=null;
- const TAP_MOVE=11,SWIPE_MIN=34,SWIPE_RATIO=1.05;
+ let startX=0,startY=0,lastX=0,lastY=0,target=null,tracking=false,pointerId=null,longTimer=null,longDone=false;
+ const TAP_MOVE=11,SWIPE_MIN=34,SWIPE_RATIO=1.05,LONG_MS=520;
+ const cancelLong=()=>{clearTimeout(longTimer);longTimer=null};
 
  grid.addEventListener('pointerdown',e=>{
    if(e.pointerType==='mouse'&&e.button!==0)return;
-   startX=lastX=e.clientX;startY=lastY=e.clientY;startTime=performance.now();
-   target=e.target.closest('.product');tracking=true;pointerId=e.pointerId;
+   startX=lastX=e.clientX;startY=lastY=e.clientY;
+   target=e.target.closest('.product');tracking=true;pointerId=e.pointerId;longDone=false;
+   cancelLong();
+   if(target){
+     longTimer=setTimeout(()=>{
+       if(!tracking||!target)return;
+       longDone=removeOneProduct(target.dataset.id);
+       if(longDone){target.classList.add('just-removed');setTimeout(()=>target?.classList.remove('just-removed'),260)}
+     },LONG_MS);
+   }
  },{passive:true});
 
  grid.addEventListener('pointermove',e=>{
    if(!tracking||e.pointerId!==pointerId)return;
    lastX=e.clientX;lastY=e.clientY;
+   const dx=lastX-startX,dy=lastY-startY,adx=Math.abs(dx),ady=Math.abs(dy);
+   if(adx>TAP_MOVE||ady>TAP_MOVE)cancelLong();
+   if(adx>8&&adx>ady*1.02)setSwipePreview(dx);else if(ady>adx)clearSwipePreview(false);
  },{passive:true});
 
- grid.addEventListener('pointercancel',()=>{tracking=false;target=null;pointerId=null},{passive:true});
+ grid.addEventListener('pointercancel',()=>{cancelLong();clearSwipePreview();tracking=false;target=null;pointerId=null;longDone=false},{passive:true});
 
  grid.addEventListener('pointerup',e=>{
    if(!tracking||e.pointerId!==pointerId)return;
-   lastX=e.clientX;lastY=e.clientY;
+   cancelLong();lastX=e.clientX;lastY=e.clientY;
    const dx=lastX-startX,dy=lastY-startY,adx=Math.abs(dx),ady=Math.abs(dy);
-   tracking=false;pointerId=null;
+   tracking=false;pointerId=null;clearSwipePreview();
 
-   // Swipe franc : catégorie précédente/suivante. Aucun produit n'est ajouté.
-   if(adx>=SWIPE_MIN && adx>ady*SWIPE_RATIO){
+   if(longDone){longDone=false;target=null;return}
+   if(adx>=SWIPE_MIN&&adx>ady*SWIPE_RATIO){
      const i=cats.findIndex(c=>c[0]===cat);
      const ni=dx<0?Math.min(cats.length-1,i+1):Math.max(0,i-1);
      if(ni!==i)changeCat(cats[ni][0],dx<0?-1:1);
-     return;
+     target=null;return;
    }
-
-   // Un mouvement vertical ou diagonal est un scroll, pas un tap.
-   if(adx>TAP_MOVE || ady>TAP_MOVE)return;
+   if(adx>TAP_MOVE||ady>TAP_MOVE){target=null;return}
    if(!target)return;
-
    const p=products.find(x=>x.id===target.dataset.id);
-   if(p)openProduct(p,target);
+   target=null;
+   if(p)openProduct(p,null);
  },{passive:true});
 
- // Empêche le click synthétique de doubler l'action sur tactile.
+ // Bloque systématiquement les clicks synthétiques tactiles Samsung/Android.
  grid.addEventListener('click',e=>{
-   if(e.detail===0 && e.target.closest('.product'))return; // clavier/accessibilité
-   e.preventDefault();
+   const b=e.target.closest('.product');if(!b)return;
+   if(e.detail===0)return; // clavier géré séparément
+   e.preventDefault();e.stopPropagation();
  },true);
 })();
 $('#softs').onclick=e=>{const b=e.target.closest('button');if(!b)return;hapticTap();addItem(pending,null,b.dataset.soft);$('#softDlg').close()};
-function addItem(p,button=null,soft=''){remember();items.push({...p,soft});updateSummary();updateProductQty(p.id);burstFeedback(p,soft)}
+function addItem(p,button=null,soft=''){if(p.soft&&!soft){openProduct(p,button);return}remember();items.push({...p,soft});updateSummary();updateProductQty(p.id);burstFeedback(p,soft)}
 
 $('#undoBtn').onclick=undo;
 function cartRender(){
@@ -263,49 +290,63 @@ $('#grid').addEventListener('keydown',e=>{
 })();
 
 
-// V3.4.3 — swipe horizontal dans toute la zone centrale de l'application
+// V3.5 — swipe horizontal dans toute la zone centrale, avec suivi du doigt.
 (()=>{
- const zone=document.querySelector('.app');
- if(!zone)return;
-
+ const zone=document.querySelector('.app');if(!zone)return;
  let sx=0,sy=0,active=false,pid=null;
  const SWIPE_MIN=34,SWIPE_RATIO=1.05;
-
  zone.addEventListener('pointerdown',e=>{
-   // La grille produits garde son gestionnaire V3.4, déjà optimisé tap/scroll/swipe.
    if(e.target.closest('#grid'))return;
-
-   // On ne transforme jamais le header, les onglets, le footer ou une fenêtre en zone de swipe.
    if(e.target.closest('header,nav,footer,dialog'))return;
    if(e.pointerType==='mouse'&&e.button!==0)return;
-
    sx=e.clientX;sy=e.clientY;active=true;pid=e.pointerId;
  },{passive:true});
-
- zone.addEventListener('pointercancel',()=>{
-   active=false;pid=null;
+ zone.addEventListener('pointermove',e=>{
+   if(!active||e.pointerId!==pid)return;
+   const dx=e.clientX-sx,dy=e.clientY-sy,adx=Math.abs(dx),ady=Math.abs(dy);
+   if(adx>8&&adx>ady*1.02)setSwipePreview(dx);else if(ady>adx)clearSwipePreview(false);
  },{passive:true});
-
+ zone.addEventListener('pointercancel',()=>{active=false;pid=null;clearSwipePreview()},{passive:true});
  zone.addEventListener('pointerup',e=>{
    if(!active||e.pointerId!==pid)return;
-
-   const dx=e.clientX-sx,dy=e.clientY-sy;
-   const adx=Math.abs(dx),ady=Math.abs(dy);
-   active=false;pid=null;
-
+   const dx=e.clientX-sx,dy=e.clientY-sy,adx=Math.abs(dx),ady=Math.abs(dy);
+   active=false;pid=null;clearSwipePreview();
    if(adx<SWIPE_MIN||adx<=ady*SWIPE_RATIO)return;
-
    const i=cats.findIndex(c=>c[0]===cat);
-   const ni=dx<0
-     ? Math.min(cats.length-1,i+1)
-     : Math.max(0,i-1);
-
+   const ni=dx<0?Math.min(cats.length-1,i+1):Math.max(0,i-1);
    if(ni!==i)changeCat(cats[ni][0],dx<0?-1:1);
  });
 })();
 
 // Evite le zoom iOS lors des taps rapides.
 let lastTouchEnd=0;document.addEventListener('touchend',e=>{if(!e.target.closest('button'))return;const now=Date.now();if(now-lastTouchEnd<=300)e.preventDefault();lastTouchEnd=now},{passive:false});
+// Tutoriel V3.5 — affiché une seule fois par appareil, relançable avec le bouton ?.
+const tutorialSteps=[
+ {icon:'👆',title:'Ajouter une boisson',text:'Un tap sur une boisson l’ajoute. Sur un alcool avec accompagnement, le choix du soft s’ouvre toujours avant l’ajout.'},
+ {icon:'↔️',title:'Changer de catégorie',text:'Utilise les onglets ou glisse horizontalement. La page suit ton doigt pendant le swipe.'},
+ {icon:'↩️',title:'Retours consignes',text:'En bas des produits, utilise VERRE −2 CHF ou PLATEAU · ARROSOIR · PICHET −10 CHF. Le compteur indique combien de consignes sont rendues.'},
+ {icon:'🧾',title:'Commande à préparer',text:'Appuie sur « Voir la commande ». Elle est affichée sans prix, regroupée par catégories. Tu peux ajouter, retirer ou supprimer une ligne avant le paiement.'},
+ {icon:'➖',title:'Corriger rapidement',text:'Maintiens un bouton produit appuyé environ une demi-seconde pour retirer directement une unité. Un message −1 confirme le retrait.'},
+ {icon:'💳',title:'Encaisser',text:'Appuie sur PAYER, puis Cash ou TWINT. Pour TWINT, affiche le QR, laisse le client scanner et saisis le montant indiqué à l’écran.'}
+];
+let tutorialStep=0;
+function renderTutorial(){
+ const s=tutorialSteps[tutorialStep];
+ $('#tutorialStepLabel').textContent=`${tutorialStep+1} / ${tutorialSteps.length}`;
+ $('#tutorialProgressBar').style.width=`${(tutorialStep+1)/tutorialSteps.length*100}%`;
+ $('#tutorialContent').innerHTML=`<div class="tutorial-icon">${s.icon}</div><h3>${s.title}</h3><p>${s.text}</p>`;
+ $('#tutorialPrev').hidden=tutorialStep===0;
+ $('#tutorialNext').textContent=tutorialStep===tutorialSteps.length-1?'TERMINER ✓':'Suivant →';
+}
+function openTutorial(){tutorialStep=0;renderTutorial();$('#tutorialDlg').showModal()}
+function closeTutorial(markSeen=true){if(markSeen)localStorage.setItem('cg_tutorial_v35_seen','1');if($('#tutorialDlg').open)$('#tutorialDlg').close()}
+$('#helpBtn').onclick=openTutorial;
+$('#tutorialNext').onclick=()=>{if(tutorialStep<tutorialSteps.length-1){tutorialStep++;renderTutorial()}else closeTutorial(true)};
+$('#tutorialPrev').onclick=()=>{if(tutorialStep>0){tutorialStep--;renderTutorial()}};
+$('#tutorialSkip').onclick=()=>closeTutorial(true);
+$('#tutorialClose').onclick=()=>closeTutorial(true);
+setTimeout(()=>{if(!localStorage.getItem('cg_tutorial_v35_seen'))openTutorial()},450);
+
 // Mise à jour PWA contrôlée : jamais de recharge forcée en pleine commande.
 let swReg=null;function offerUpdate(reg){swReg=reg;$('#updateBar').hidden=false}if('serviceWorker'in navigator){navigator.serviceWorker.register('sw.js').then(reg=>{swReg=reg;if(reg.waiting)offerUpdate(reg);reg.addEventListener('updatefound',()=>{const nw=reg.installing;nw?.addEventListener('statechange',()=>{if(nw.state==='installed'&&navigator.serviceWorker.controller)offerUpdate(reg)})});setInterval(()=>reg.update(),5*60*1000)});navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload())}
 $('#updateBtn').onclick=()=>{if(items.length||returns.glass||returns.large){toastMsg('Termine la commande avant la mise à jour',1800);return}if(swReg?.waiting){$('#updateBtn').textContent='MISE À JOUR…';swReg.waiting.postMessage({type:'SKIP_WAITING'})}else location.reload()};

@@ -1,5 +1,5 @@
-const C='cg-bar-v3-4-4';
-const ASSETS=['./','index.html','styles.css','app.js','logo.png','icon-192.png','icon-512.png','manifest.webmanifest'];
+const C='cg-bar-v3-5';
+const ASSETS=['./','index.html','styles.css','app.js','logo.png','icon-192.png','icon-512.png','manifest.webmanifest','qr-twint.jpeg'];
 
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(C).then(c=>c.addAll(ASSETS)));

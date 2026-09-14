@@ -322,3 +322,12 @@ main{
 
 /* V3.4.4 — bordure touches boissons légèrement renforcée */
 .product{border-width:2px !important;}
+\n\n/* V3.5 — ajouts ciblés */
+#grid,.returns{will-change:transform;transform:translateX(0)}
+.product.just-removed{animation:removedCard .28s ease}
+.product.just-removed .tap-plus{opacity:1!important;color:#ff6f7f!important;animation:none!important;transform:translate(-50%,-50%) scale(1)!important}
+.product.just-removed .tap-plus::after{content:"−1";font-size:30px}.product.just-removed .tap-plus{font-size:0}
+@keyframes removedCard{50%{border-color:#ff6f7f;box-shadow:0 0 0 2px #ff6f7f44 inset}}
+.twint-qr{display:block;width:min(270px,78vw);height:auto;margin:2px auto 10px;border-radius:12px;background:#fff;border:7px solid #fff;box-shadow:0 8px 25px #0008}
+.twint-box small{max-width:320px;margin:5px auto 12px!important;line-height:1.35}
+.tutorial-dialog{max-width:520px}.tutorial-sheet{min-height:430px;display:flex;flex-direction:column}.tutorial-progress{display:flex;align-items:center;gap:10px;color:#aeb5bf;font-size:12px;font-weight:850;margin:4px 0 18px}.tutorial-progress>div{height:6px;flex:1;background:#2b3039;border-radius:99px;overflow:hidden}.tutorial-progress i{display:block;height:100%;width:0;background:#eafc35;border-radius:99px;transition:width .2s ease}.tutorial-content{flex:1;text-align:center;padding:10px 8px 18px}.tutorial-icon{font-size:54px;line-height:1;margin:10px 0 18px}.tutorial-content h3{font-size:24px;margin:0 0 10px}.tutorial-content p{font-size:17px;line-height:1.45;color:#c9ced6;margin:0 auto;max-width:390px}.tutorial-actions{display:grid;grid-template-columns:auto auto 1fr;gap:8px;margin-top:auto}.tutorial-actions button{min-height:48px;border-radius:12px;border:0;font-weight:900}.tutorial-actions .secondary{background:#292e37;color:#fff}.tutorial-actions .primary{background:#eafc35;color:#111}.tutorial-actions button[hidden]{display:none}@media(max-width:420px){.tutorial-actions{grid-template-columns:1fr 1fr}.tutorial-actions #tutorialNext{grid-column:1/-1;grid-row:1}.tutorial-actions #tutorialSkip,.tutorial-actions #tutorialPrev{grid-row:2}.twint-qr{width:min(250px,76vw)}}
