@@ -22,6 +22,42 @@ function money(n){const v=Math.round((Number(n)||0)*100)/100;return (Number.isIn
 function total(){return items.reduce((s,x)=>s+x.price+x.deposit,0)-returns.glass*2-returns.large*10}
 function qty(id){return items.filter(x=>x.id===id).length}
 
+function hasOrder(){return !!(items.length||returns.glass||returns.large)}
+function updatePayState(){
+ const pay=$('#pay');
+ if(!pay)return;
+ pay.disabled=!hasOrder();
+ pay.setAttribute('aria-disabled',pay.disabled?'true':'false');
+}
+function clearAddFeedback(button){
+ if(!button)return;
+ button.classList.remove('just-added');
+ const plus=button.querySelector('.tap-plus');
+ if(plus){
+   plus.style.animation='none';
+   plus.style.opacity='0';
+   void plus.offsetWidth;
+   plus.style.animation='';
+   plus.style.opacity='';
+ }
+}
+function showMinusFeedback(button,label='−1'){
+ if(!button)return;
+ clearAddFeedback(button);
+ button.querySelectorAll('.tap-minus').forEach(el=>el.remove());
+ const minus=document.createElement('span');
+ minus.className='tap-minus';
+ minus.textContent=label;
+ button.appendChild(minus);
+ button.classList.remove('just-removed');
+ void button.offsetWidth;
+ button.classList.add('just-removed');
+ setTimeout(()=>{
+   minus.remove();
+   button.classList.remove('just-removed');
+ },620);
+}
+
 function productsForCat(name){
  const list=products.filter(p=>p.cat===name);
 
@@ -42,7 +78,7 @@ function productsForCat(name){
  }
 
  if(name==='shots'){
-   const shotOrder=['zekilla','berliner','xuxu','autre','tequila','plateau'];
+   const shotOrder=['zekilla','berliner','xuxu','autre_shot','tequila','plateau'];
    const byId=new Map(list.map(p=>[p.id,p]));
    const ordered=shotOrder.map(id=>byId.get(id)).filter(Boolean);
    const reserved=new Set(shotOrder);
@@ -95,6 +131,7 @@ function updateSummary(){
  $('#total').textContent=money(total());
  $('#retGlassQty').textContent=returns.glass?`×${returns.glass}`:'';
  $('#retLargeQty').textContent=returns.large?`×${returns.large}`:'';
+ updatePayState();
 }
 function updateProductQty(id){
  const b=document.querySelector(`[data-id="${id}"]`);if(!b)return;
@@ -110,6 +147,7 @@ function render(){
  $('#tabs').innerHTML=cats.map(c=>`<button class="${c[0]===cat?'active':''}" data-cat="${c[0]}">${c[1]}</button>`).join('');
  $('#grid').innerHTML=productsForCat(cat).map(p=>`<button class="product" data-cat="${p.cat}" data-id="${p.id}"><b>${p.name}</b><div class="price-row"><span class="price">${money(p.price)}</span>${p.deposit?`<span class="deposit-badge">+${money(p.deposit)}</span>`:''}</div>${p.note?`<small>${p.note}</small>`:''}${qty(p.id)?`<span class="qty">×${qty(p.id)}</span>`:''}<span class="tap-plus">+1</span></button>`).join('');
  $('#count').textContent=`${items.length} article${items.length!==1?'s':''}`;$('#total').textContent=money(total());$('#retGlassQty').textContent=returns.glass?`×${returns.glass}`:'';$('#retLargeQty').textContent=returns.large?`×${returns.large}`:'';
+ updatePayState();
 }
 function openProduct(p,b){
  hapticTap();
@@ -154,10 +192,12 @@ function removeOneProduct(id){
    if(target){
      longTimer=setTimeout(()=>{
        if(!tracking||!target)return;
-       longDone=removeOneProduct(target.dataset.id);
+       const pressedButton=target;
+       longDone=removeOneProduct(pressedButton.dataset.id);
        if(longDone){
-         target.classList.add('just-removed');
-         setTimeout(()=>target?.classList.remove('just-removed'),260);
+         const p=products.find(x=>x.id===pressedButton.dataset.id);
+         if(p)tapBursts.delete(p.id+'|');
+         showMinusFeedback(pressedButton,'−1');
        }
      },LONG_MS);
    }
@@ -217,16 +257,16 @@ function cartRender(){
    const catHead=x.cat!==lastCat?`<div class="prep-cat-title">${catLabel.toUpperCase()}</div>`:'';
    lastCat=x.cat;
    const fullName=x.soft?`${x.name} <span class="prep-soft">→ ${x.soft}</span>`:x.name;
-   return `${catHead}<div class="prep-line" data-key="${encodeURIComponent(x.key)}"><div class="prep-qty">×${x.n}</div><div class="prep-name"><b>${fullName}</b></div><div class="line-actions"><button data-act="minus">−</button><button data-act="plus">+</button><button class="trash" data-act="trash">×</button></div></div>`;
+   return `${catHead}<div class="prep-line" data-key="${encodeURIComponent(x.key)}"><div class="prep-qty${x.n>=3?' prep-qty-high':''}">×${x.n}</div><div class="prep-name"><b>${fullName}</b></div><div class="line-actions"><button data-act="minus">−</button><button data-act="plus">+</button><button class="trash" data-act="trash">×</button></div></div>`;
  }).join('');
  if(returns.glass||returns.large)html+=`<div class="prep-return-title">↩ RETOURS CONSIGNES</div>`;
  if(returns.glass)html+=returnLine('glass','Verres',returns.glass);if(returns.large)html+=returnLine('large','Plateau · arrosoir · pichet',returns.large);
  if(!groups.length&&!returns.glass&&!returns.large)html='<p class="muted">Commande vide.</p>';$('#lines').innerHTML=html;
 }
-function returnLine(type,label,n){return `<div class="prep-line prep-return" data-return="${type}"><div class="prep-qty">×${n}</div><div class="prep-name"><b>${label}</b></div><div class="line-actions"><button data-retact="minus">−</button><button data-retact="plus">+</button><button class="trash" data-retact="trash">×</button></div></div>`}
+function returnLine(type,label,n){return `<div class="prep-line prep-return" data-return="${type}"><div class="prep-qty${n>=3?' prep-qty-high':''}">×${n}</div><div class="prep-name"><b>${label}</b></div><div class="line-actions"><button data-retact="minus">−</button><button data-retact="plus">+</button><button class="trash" data-retact="trash">×</button></div></div>`}
 $('#cart').onclick=()=>{cartRender();$('#cartDlg').showModal()};
 $('#lines').onclick=e=>{const rb=e.target.closest('button[data-retact]');if(rb){remember();const type=rb.closest('[data-return]').dataset.return;if(rb.dataset.retact==='plus')returns[type]++;if(rb.dataset.retact==='minus')returns[type]=Math.max(0,returns[type]-1);if(rb.dataset.retact==='trash')returns[type]=0;render();cartRender();return}const btn=e.target.closest('button[data-act]');if(!btn)return;const key=decodeURIComponent(btn.closest('[data-key]').dataset.key),g=groupItems().find(x=>x.key===key);if(!g)return;remember();if(btn.dataset.act==='plus'){const p=products.find(x=>x.id===g.id);items.push({...p,soft:g.soft||''})}if(btn.dataset.act==='minus'){const idx=items.findLastIndex(x=>x.id===g.id&&(x.soft||'')===(g.soft||''));if(idx>=0)items.splice(idx,1)}if(btn.dataset.act==='trash')items=items.filter(x=>!(x.id===g.id&&(x.soft||'')===(g.soft||'')));render();cartRender()};
-$('#pay').onclick=()=>{setPaymentLocked(false);$('#payDlg').classList.remove('twint-mode');$('#payTotal').innerHTML=`<span>À ENCAISSER</span><b>${money(total())}</b>`;$('#cashBox').hidden=true;$('#twintBox').hidden=true;$('#given').value='';$('#change').textContent='';$('#payDlg').showModal()};
+$('#pay').onclick=()=>{if(!hasOrder())return;setPaymentLocked(false);$('#payDlg').classList.remove('twint-mode');$('#payTotal').innerHTML=`<span>À ENCAISSER</span><b>${money(total())}</b>`;$('#cashBox').hidden=true;$('#twintBox').hidden=true;$('#given').value='';$('#change').textContent='';$('#payDlg').showModal()};
 $('#cash').onclick=()=>{$('#payDlg').classList.remove('twint-mode');$('#cashBox').hidden=false;$('#twintBox').hidden=true;setTimeout(()=>$('#given').focus(),80)};
 $('#twint').onclick=()=>{$('#payDlg').classList.add('twint-mode');$('#cashBox').hidden=true;$('#twintBox').hidden=false};
 $$('[data-given]').forEach(b=>b.onclick=()=>{const cur=parseFloat(($('#given').value||'').replace(',','.'))||0;$('#given').value=cur+Number(b.dataset.given);calcChange()});
@@ -293,12 +333,12 @@ $('#grid').addEventListener('keydown',e=>{
      if(returns[type]<=0)return;
 
      remember();
+     const pressedButton=target;
      returns[type]--;
      longDone=true;
-     target.classList.add('just-removed');
-     setTimeout(()=>target?.classList.remove('just-removed'),260);
      hapticTap();
      render();
+     showMinusFeedback(pressedButton,'−1');
      toastMsg(type==='glass'?'Retour verre −1':'Retour grande consigne −1',700);
    },LONG_MS);
  },{passive:true});
@@ -379,7 +419,7 @@ const tutorialSteps=[
  {target:'.returns button[data-ret="glass"]',title:'Retours consignes',text:'Utilise ces boutons quand le client rend ses consignes. Le montant est automatiquement déduit.',side:'top'},
  {target:'#cart',title:'Commande à préparer',text:'Ouvre ici la commande à préparer : elle est sans prix, regroupée par catégories, et tu peux corriger les quantités avant le paiement.',side:'top'},
  {target:'#pay',title:'Encaisser',text:'PAYER ouvre Cash ou TWINT. Le QR TWINT s’affiche directement dans la fenêtre de paiement.',side:'top'},
- {target:null,title:'Installer comme une application',text:'iPhone : ouvre cette page dans Safari. Appuie sur le bouton Partager (le carré avec une flèche vers le haut), fais défiler le menu puis touche « Sur l’écran d’accueil ». Termine avec « Ajouter » en haut à droite.\\n\\nAndroid / Samsung : ouvre cette page dans Chrome ou Samsung Internet. Appuie sur le menu ⋮, puis sur « Ajouter à l’écran d’accueil » ou « Installer l’application ». Confirme l’installation.\\n\\nUne icône Bar Carnaval apparaîtra ensuite sur ton écran d’accueil : tu pourras lancer l’app directement depuis là.',side:'center'}
+ {target:null,title:'Installer comme une application',install:true,text:'',side:'center'}
 ];
 let tutorialStep=0,tutorialOpen=false,tutorialPrevCat=null,tutorialScrollY=0;
 
@@ -396,7 +436,34 @@ function positionTutorial(){
  $('#tutorialStepLabel').textContent=`${tutorialStep+1} / ${tutorialSteps.length}`;
  $('#tutorialProgressBar').style.width=`${(tutorialStep+1)/tutorialSteps.length*100}%`;
  $('#tutorialTitle').textContent=s.title;
- $('#tutorialText').textContent=s.text;
+ const tutorialText=$('#tutorialText');
+ if(s.install){
+   tutorialText.innerHTML=`
+     <div class="install-intro">Ajoute Bar Carnaval à l’écran d’accueil pour l’ouvrir directement, comme une application.</div>
+     <div class="install-cards">
+       <section class="install-card install-ios">
+         <div class="install-card-head"><span class="install-os"></span><b>iPhone</b><small>Safari</small></div>
+         <ol>
+           <li><span>1</span><div>Ouvre cette page dans <b>Safari</b>.</div></li>
+           <li><span>2</span><div>Appuie sur <b>Partager</b> <em>□↑</em>.</div></li>
+           <li><span>3</span><div>Choisis <b>Sur l’écran d’accueil</b>.</div></li>
+           <li><span>4</span><div>Appuie sur <b>Ajouter</b>.</div></li>
+         </ol>
+       </section>
+       <section class="install-card install-android">
+         <div class="install-card-head"><span class="install-os">⋮</span><b>Samsung / Android</b><small>Chrome ou Samsung Internet</small></div>
+         <ol>
+           <li><span>1</span><div>Ouvre cette page dans ton navigateur.</div></li>
+           <li><span>2</span><div>Ouvre le menu <b>⋮</b>.</div></li>
+           <li><span>3</span><div>Choisis <b>Ajouter à l’écran d’accueil</b> ou <b>Installer l’application</b>.</div></li>
+           <li><span>4</span><div>Confirme.</div></li>
+         </ol>
+       </section>
+     </div>
+     <div class="install-done">✓ L’icône Bar Carnaval apparaîtra ensuite sur l’écran d’accueil.</div>`;
+ }else{
+   tutorialText.textContent=s.text;
+ }
  $('#tutorialPrev').hidden=tutorialStep===0;
  $('#tutorialNext').textContent=tutorialStep===tutorialSteps.length-1?'TERMINER ✓':'Suivant →';
 
