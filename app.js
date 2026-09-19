@@ -249,7 +249,6 @@ function removeOneProduct(id){
 $('#softs').onclick=e=>{const b=e.target.closest('button');if(!b)return;hapticTap();addItem(pending,null,b.dataset.soft);$('#softDlg').close()};
 function addItem(p,button=null,soft=''){if(p.soft&&!soft){openProduct(p,button);return}remember();items.push({...p,soft});updateSummary();updateProductQty(p.id);burstFeedback(p,soft)}
 
-$('#undoBtn').onclick=undo;
 function cartRender(){
  const groups=groupItems();let lastCat='';
  let html=groups.map(x=>{
@@ -474,16 +473,21 @@ function renderInstallHelp(platform){
 
  if(platform==='ios'){
    tutorialText.innerHTML=`
-     <div class="install-hero">
+     <div class="install-hero compact">
        <div class="install-hero-icon"></div>
-       <div><b>Installer sur iPhone</b><small>3 gestes dans Safari</small></div>
+       <div><b>Installer sur iPhone</b><small>Safari · 2 étapes</small></div>
      </div>
-     <div class="install-simple-steps">
-       <div><span>1</span><p>Ouvre cette page dans <b>Safari</b>.</p></div>
-       <div><span>2</span><p>Appuie sur <b>Partager</b> <strong class="share-symbol">□↑</strong>.</p></div>
-       <div><span>3</span><p>Choisis <b>Sur l’écran d’accueil</b>, puis <b>Ajouter</b>.</p></div>
+     <div class="ios-shot-grid">
+       <figure class="ios-shot">
+         <img src="iphone-share.jpg" alt="Menu Safari avec le bouton Partager">
+         <figcaption><span>1</span><b>Partager</b></figcaption>
+       </figure>
+       <figure class="ios-shot">
+         <img src="iphone-home.jpg" alt="Menu de partage avec Sur l’écran d’accueil">
+         <figcaption><span>2</span><b>Sur l’écran d’accueil</b></figcaption>
+       </figure>
      </div>
-     <div class="install-note">Apple ne permet pas l’installation en un clic depuis une page web.</div>
+     <div class="install-note">Ensuite, touche <b>Ajouter</b>. L’icône Bar Carnaval apparaîtra sur l’écran d’accueil.</div>
      <button id="showAndroidHelp" class="install-other-btn">Voir Android / Samsung</button>`;
    setTimeout(()=>{
      const b=$('#showAndroidHelp');
@@ -541,6 +545,7 @@ function positionTutorial(){
  $('#tutorialProgressBar').style.width=`${(tutorialStep+1)/tutorialSteps.length*100}%`;
  $('#tutorialTitle').textContent=s.title;
  const tutorialText=$('#tutorialText');
+
  if(s.install){
    const platform=getInstallPlatform();
    if(platform==='ios'){
@@ -560,18 +565,26 @@ function positionTutorial(){
  }else{
    tutorialText.textContent=s.text;
  }
+
  $('#tutorialNext').textContent=tutorialStep===tutorialSteps.length-1?'TERMINER ✓':'Suivant →';
 
+ // V3.5.7 : la fenêtre reste toujours exactement au centre.
+ bubble.classList.add('tutorial-centered','tutorial-fixed');
+ bubble.style.left='50%';
+ bubble.style.top='50%';
+ bubble.style.right='auto';
+ bubble.style.bottom='auto';
+ bubble.style.width='';
+ bubble.style.transform='translate(-50%,-50%)';
+
  if(!target){
-   focus.hidden=true;arrow.hidden=true;
-   bubble.classList.add('tutorial-centered');
-   bubble.style.left='50%';bubble.style.top='50%';
-   bubble.style.transform='translate(-50%,-50%)';
+   focus.hidden=true;
+   arrow.hidden=true;
    return;
  }
 
- bubble.classList.remove('tutorial-centered');
- focus.hidden=false;arrow.hidden=false;
+ focus.hidden=false;
+ arrow.hidden=false;
 
  const r=target.getBoundingClientRect();
  const pad=7;
@@ -580,31 +593,20 @@ function positionTutorial(){
  focus.style.width=(r.width+pad*2)+'px';
  focus.style.height=(r.height+pad*2)+'px';
 
- // Positionne la bulle sous ou au-dessus de la cible selon la place disponible.
- const vw=window.innerWidth,vh=window.innerHeight;
- bubble.style.transform='';
- bubble.style.left='12px';
- bubble.style.right='12px';
- bubble.style.width='auto';
+ // Seuls le repère et la flèche bougent ; le panneau ne bouge jamais.
+ const vw=window.innerWidth, vh=window.innerHeight;
+ const cx=r.left+r.width/2;
+ const cy=r.top+r.height/2;
+ const bubbleCenterY=vh/2;
 
- const bubbleH=Math.min(270,bubble.offsetHeight||230);
- let side=s.side;
- if(side==='bottom' && r.bottom+bubbleH+28>vh)side='top';
- if(side==='top' && r.top-bubbleH-28<8)side='bottom';
+ arrow.textContent='➜';
+ arrow.style.left=Math.min(vw-42,Math.max(10,cx-16))+'px';
 
- if(side==='top'){
-   bubble.style.top='auto';
-   bubble.style.bottom=Math.max(12,vh-r.top+18)+'px';
-   arrow.textContent='➜';
-   arrow.style.left=Math.min(vw-42,Math.max(10,r.left+r.width/2-16))+'px';
-   arrow.style.top=Math.max(8,r.top-44)+'px';
+ if(cy < bubbleCenterY){
+   arrow.style.top=Math.min(vh-48,Math.max(8,r.bottom+3))+'px';
    arrow.style.transform='rotate(90deg)';
  }else{
-   bubble.style.bottom='auto';
-   bubble.style.top=Math.min(vh-210,r.bottom+22)+'px';
-   arrow.textContent='➜';
-   arrow.style.left=Math.min(vw-42,Math.max(10,r.left+r.width/2-16))+'px';
-   arrow.style.top=Math.min(vh-48,r.bottom+2)+'px';
+   arrow.style.top=Math.min(vh-48,Math.max(8,r.top-40))+'px';
    arrow.style.transform='rotate(-90deg)';
  }
 }

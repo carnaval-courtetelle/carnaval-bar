@@ -1,5 +1,5 @@
-const C='cg-bar-v3-5-6';
-const ASSETS=['./','index.html','styles.css','app.js','logo.png','icon-192.png','icon-512.png','manifest.webmanifest','qr-twint.png'];
+const C='cg-bar-v3-5-7';
+const ASSETS=['./','index.html','styles.css','app.js','logo.png','icon-192.png','icon-512.png','manifest.webmanifest','qr-twint.png','iphone-share.jpg','iphone-home.jpg'];
 
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(C).then(c=>c.addAll(ASSETS)));
