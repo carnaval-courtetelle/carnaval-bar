@@ -410,6 +410,110 @@ $('#grid').addEventListener('keydown',e=>{
 
 // Evite le zoom iOS lors des taps rapides.
 let lastTouchEnd=0;document.addEventListener('touchend',e=>{if(!e.target.closest('button'))return;const now=Date.now();if(now-lastTouchEnd<=300)e.preventDefault();lastTouchEnd=now},{passive:false});
+
+// Installation PWA V3.5.6
+let deferredInstallPrompt=null;
+
+window.addEventListener('beforeinstallprompt',e=>{
+ e.preventDefault();
+ deferredInstallPrompt=e;
+ if(tutorialOpen && tutorialSteps[tutorialStep]?.install)positionTutorial();
+});
+
+window.addEventListener('appinstalled',()=>{
+ deferredInstallPrompt=null;
+ toastMsg('Application installée ✓',1200);
+ if(tutorialOpen && tutorialSteps[tutorialStep]?.install)positionTutorial();
+});
+
+function getInstallPlatform(){
+ const standalone=window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone===true;
+ if(standalone)return 'standalone';
+ const ua=navigator.userAgent||'';
+ const isIOS=/iPad|iPhone|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+ if(isIOS)return 'ios';
+ if(/Android/i.test(ua))return 'android';
+ return 'other';
+}
+
+async function triggerInstallPrompt(){
+ if(!deferredInstallPrompt){
+   toastMsg('Installation directe indisponible sur ce navigateur',1400);
+   return;
+ }
+ const prompt=deferredInstallPrompt;
+ deferredInstallPrompt=null;
+ try{
+   await prompt.prompt();
+   await prompt.userChoice;
+ }catch(e){
+   deferredInstallPrompt=prompt;
+ }
+ if(tutorialOpen && tutorialSteps[tutorialStep]?.install)positionTutorial();
+}
+
+function buildInstallChooser(){
+ return `
+   <div class="install-choice-title">Choisis ton téléphone</div>
+   <div class="install-choice-grid">
+     <button id="installChoiceIos" class="install-choice-btn"><span></span><b>iPhone</b><small>Safari</small></button>
+     <button id="installChoiceAndroid" class="install-choice-btn"><span>↧</span><b>Android</b><small>Samsung / Chrome</small></button>
+   </div>`;
+}
+
+function bindInstallChooser(){
+ const ios=$('#installChoiceIos');
+ const android=$('#installChoiceAndroid');
+ if(ios)ios.onclick=()=>renderInstallHelp('ios');
+ if(android)android.onclick=()=>renderInstallHelp('android');
+}
+
+function renderInstallHelp(platform){
+ const tutorialText=$('#tutorialText');
+ if(!tutorialText)return;
+
+ if(platform==='ios'){
+   tutorialText.innerHTML=`
+     <div class="install-hero">
+       <div class="install-hero-icon"></div>
+       <div><b>Installer sur iPhone</b><small>3 gestes dans Safari</small></div>
+     </div>
+     <div class="install-simple-steps">
+       <div><span>1</span><p>Ouvre cette page dans <b>Safari</b>.</p></div>
+       <div><span>2</span><p>Appuie sur <b>Partager</b> <strong class="share-symbol">□↑</strong>.</p></div>
+       <div><span>3</span><p>Choisis <b>Sur l’écran d’accueil</b>, puis <b>Ajouter</b>.</p></div>
+     </div>
+     <div class="install-note">Apple ne permet pas l’installation en un clic depuis une page web.</div>
+     <button id="showAndroidHelp" class="install-other-btn">Voir Android / Samsung</button>`;
+   setTimeout(()=>{
+     const b=$('#showAndroidHelp');
+     if(b)b.onclick=()=>renderInstallHelp('android');
+   },0);
+ }else{
+   const canPrompt=!!deferredInstallPrompt;
+   tutorialText.innerHTML=`
+     <div class="install-hero">
+       <div class="install-hero-icon">↧</div>
+       <div><b>Installer sur Android</b><small>${canPrompt?'Installation directe disponible':'Samsung / Android'}</small></div>
+     </div>
+     ${canPrompt
+       ? `<button id="tutorialInstallApp" class="install-direct-btn">INSTALLER L’APPLICATION</button>
+          <div class="install-note">Le téléphone ouvrira directement sa fenêtre d’installation.</div>`
+       : `<div class="install-simple-steps">
+            <div><span>1</span><p>Ouvre le menu <b>⋮</b>.</p></div>
+            <div><span>2</span><p>Choisis <b>Installer l’application</b> ou <b>Ajouter à l’écran d’accueil</b>.</p></div>
+            <div><span>3</span><p>Confirme.</p></div>
+          </div>`}
+     <button id="showIosHelp" class="install-other-btn">Voir les instructions iPhone</button>`;
+   setTimeout(()=>{
+     const installBtn=$('#tutorialInstallApp');
+     if(installBtn)installBtn.onclick=triggerInstallPrompt;
+     const b=$('#showIosHelp');
+     if(b)b.onclick=()=>renderInstallHelp('ios');
+   },0);
+ }
+}
+
 // Tutoriel guidé V3.5.2 — flèches et repères directement sur l'application.
 const tutorialSteps=[
  {target:'#grid .product',cat:'softs',title:'Ajouter une boisson',text:'Un tap sur une boisson l’ajoute directement à la commande.',side:'bottom'},
@@ -438,33 +542,24 @@ function positionTutorial(){
  $('#tutorialTitle').textContent=s.title;
  const tutorialText=$('#tutorialText');
  if(s.install){
-   tutorialText.innerHTML=`
-     <div class="install-intro">Ajoute Bar Carnaval à l’écran d’accueil pour l’ouvrir directement, comme une application.</div>
-     <div class="install-cards">
-       <section class="install-card install-ios">
-         <div class="install-card-head"><span class="install-os"></span><b>iPhone</b><small>Safari</small></div>
-         <ol>
-           <li><span>1</span><div>Ouvre cette page dans <b>Safari</b>.</div></li>
-           <li><span>2</span><div>Appuie sur <b>Partager</b> <em>□↑</em>.</div></li>
-           <li><span>3</span><div>Choisis <b>Sur l’écran d’accueil</b>.</div></li>
-           <li><span>4</span><div>Appuie sur <b>Ajouter</b>.</div></li>
-         </ol>
-       </section>
-       <section class="install-card install-android">
-         <div class="install-card-head"><span class="install-os">⋮</span><b>Samsung / Android</b><small>Chrome ou Samsung Internet</small></div>
-         <ol>
-           <li><span>1</span><div>Ouvre cette page dans ton navigateur.</div></li>
-           <li><span>2</span><div>Ouvre le menu <b>⋮</b>.</div></li>
-           <li><span>3</span><div>Choisis <b>Ajouter à l’écran d’accueil</b> ou <b>Installer l’application</b>.</div></li>
-           <li><span>4</span><div>Confirme.</div></li>
-         </ol>
-       </section>
-     </div>
-     <div class="install-done">✓ L’icône Bar Carnaval apparaîtra ensuite sur l’écran d’accueil.</div>`;
+   const platform=getInstallPlatform();
+   if(platform==='ios'){
+     renderInstallHelp('ios');
+   }else if(platform==='android'){
+     renderInstallHelp('android');
+   }else if(platform==='standalone'){
+     tutorialText.innerHTML=`
+       <div class="install-hero installed">
+         <div class="install-hero-icon">✓</div>
+         <div><b>Application déjà installée</b><small>Bar Carnaval est déjà ouverte comme une app.</small></div>
+       </div>`;
+   }else{
+     tutorialText.innerHTML=buildInstallChooser();
+     setTimeout(bindInstallChooser,0);
+   }
  }else{
    tutorialText.textContent=s.text;
  }
- $('#tutorialPrev').hidden=tutorialStep===0;
  $('#tutorialNext').textContent=tutorialStep===tutorialSteps.length-1?'TERMINER ✓':'Suivant →';
 
  if(!target){
@@ -542,7 +637,6 @@ function closeTutorial(markSeen=true){
 }
 $('#helpBtn').onclick=openTutorial;
 $('#tutorialNext').onclick=()=>{if(tutorialStep<tutorialSteps.length-1){tutorialStep++;prepareTutorialStep()}else closeTutorial(true)};
-$('#tutorialPrev').onclick=()=>{if(tutorialStep>0){tutorialStep--;prepareTutorialStep()}};
 $('#tutorialSkip').onclick=()=>closeTutorial(true);
 $('#tutorialClose').onclick=()=>closeTutorial(true);
 window.addEventListener('resize',()=>{if(tutorialOpen)positionTutorial()});

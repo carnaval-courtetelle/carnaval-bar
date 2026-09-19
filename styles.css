@@ -825,3 +825,139 @@ body.tutorial-active{
   }
   .install-card{padding:10px}
 }
+
+
+/* V3.5.6 — tutoriel sans bouton Retour */
+.tutorial-bubble .tutorial-actions{
+  grid-template-columns:auto 1fr !important;
+}
+.tutorial-bubble #tutorialNext{
+  grid-column:auto !important;
+  grid-row:auto !important;
+}
+.tutorial-bubble #tutorialSkip{
+  grid-row:auto !important;
+}
+
+/* Installation claire et adaptée au téléphone */
+.tutorial-bubble.tutorial-centered:has(.install-hero),
+.tutorial-bubble.tutorial-centered:has(.install-choice-grid){
+  width:min(92vw,480px) !important;
+  max-width:480px !important;
+  max-height:88dvh;
+  overflow:auto;
+}
+.install-hero{
+  display:grid;
+  grid-template-columns:52px 1fr;
+  gap:12px;
+  align-items:center;
+  padding:12px;
+  margin:2px 0 14px;
+  border:1px solid #3e4652;
+  border-radius:15px;
+  background:#11151a;
+}
+.install-hero.installed{border-color:#3e704f;background:#14271b}
+.install-hero-icon{
+  width:52px;height:52px;
+  display:grid;place-items:center;
+  border-radius:15px;
+  background:#272e38;
+  color:#eafc35;
+  font-size:26px;
+  font-weight:1000;
+}
+.install-hero b{display:block;color:#fff;font-size:19px;line-height:1.05}
+.install-hero small{display:block;margin-top:4px;color:#939eaa;font-size:11px;font-weight:750}
+.install-simple-steps{display:grid;gap:9px}
+.install-simple-steps>div{
+  display:grid;
+  grid-template-columns:32px 1fr;
+  gap:10px;
+  align-items:center;
+  padding:10px 11px;
+  border-radius:13px;
+  background:#20252d;
+  border:1px solid #323945;
+}
+.install-simple-steps span{
+  width:32px;height:32px;
+  display:grid;place-items:center;
+  border-radius:50%;
+  background:#eafc35;
+  color:#111;
+  font-size:13px;
+  font-weight:1000;
+}
+.install-simple-steps p{
+  margin:0 !important;
+  color:#d7dce2 !important;
+  font-size:14px !important;
+  line-height:1.3 !important;
+}
+.share-symbol{color:#eafc35;font-size:17px}
+.install-direct-btn{
+  width:100%;
+  min-height:56px;
+  border:0;
+  border-radius:14px;
+  background:#eafc35;
+  color:#111;
+  font-size:16px;
+  font-weight:1000;
+  letter-spacing:.02em;
+  margin-bottom:10px;
+}
+.install-direct-btn:active{transform:scale(.985)}
+.install-note{
+  margin-top:10px;
+  padding:10px 11px;
+  border-radius:12px;
+  background:#171c22;
+  color:#9fa8b3;
+  font-size:11px;
+  line-height:1.35;
+  font-weight:700;
+}
+.install-other-btn{
+  width:100%;
+  min-height:43px;
+  margin-top:10px;
+  border:1px solid #3b434e;
+  border-radius:11px;
+  background:#242a32;
+  color:#dbe0e6;
+  font-size:12px;
+  font-weight:850;
+}
+.install-choice-title{
+  color:#c9ced6;
+  font-size:14px;
+  font-weight:800;
+  margin:3px 0 11px;
+}
+.install-choice-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.install-choice-btn{
+  min-height:118px;
+  border:1px solid #3a424d;
+  border-radius:16px;
+  background:#171b21;
+  color:#fff;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+}
+.install-choice-btn>span{font-size:31px;color:#eafc35;line-height:1;margin-bottom:5px}
+.install-choice-btn>b{font-size:16px}
+.install-choice-btn>small{font-size:10px;color:#8f99a5}
+@media(max-width:380px){
+  .install-choice-grid{grid-template-columns:1fr}
+  .install-choice-btn{min-height:90px}
+}
