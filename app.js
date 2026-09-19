@@ -475,19 +475,14 @@ function renderInstallHelp(platform){
    tutorialText.innerHTML=`
      <div class="install-hero compact">
        <div class="install-hero-icon"></div>
-       <div><b>Installer sur iPhone</b><small>Safari · 2 étapes</small></div>
+       <div><b>Installer sur iPhone</b><small>Safari · 3 étapes</small></div>
      </div>
-     <div class="ios-shot-grid">
-       <figure class="ios-shot">
-         <img src="iphone-share.jpg" alt="Menu Safari avec le bouton Partager">
-         <figcaption><span>1</span><b>Partager</b></figcaption>
-       </figure>
-       <figure class="ios-shot">
-         <img src="iphone-home.jpg" alt="Menu de partage avec Sur l’écran d’accueil">
-         <figcaption><span>2</span><b>Sur l’écran d’accueil</b></figcaption>
-       </figure>
+     <div class="install-simple-steps">
+       <div><span>1</span><p>Ouvre cette page dans <b>Safari</b>.</p></div>
+       <div><span>2</span><p>Appuie sur <b>Partager</b> <strong class="share-symbol">□↑</strong>.</p></div>
+       <div><span>3</span><p>Choisis <b>Sur l’écran d’accueil</b>, puis <b>Ajouter</b>.</p></div>
      </div>
-     <div class="install-note">Ensuite, touche <b>Ajouter</b>. L’icône Bar Carnaval apparaîtra sur l’écran d’accueil.</div>
+     <div class="install-note">Apple ne permet pas l’installation directe en un clic depuis une page web.</div>
      <button id="showAndroidHelp" class="install-other-btn">Voir Android / Samsung</button>`;
    setTimeout(()=>{
      const b=$('#showAndroidHelp');
@@ -568,41 +563,55 @@ function positionTutorial(){
 
  $('#tutorialNext').textContent=tutorialStep===tutorialSteps.length-1?'TERMINER ✓':'Suivant →';
 
- // V3.5.7 : la fenêtre reste toujours exactement au centre.
- bubble.classList.add('tutorial-centered','tutorial-fixed');
+ bubble.classList.add('tutorial-hybrid');
+ bubble.classList.remove('tutorial-fixed','tutorial-top','tutorial-bottom','tutorial-centered');
  bubble.style.left='50%';
- bubble.style.top='50%';
  bubble.style.right='auto';
- bubble.style.bottom='auto';
  bubble.style.width='';
- bubble.style.transform='translate(-50%,-50%)';
+ bubble.style.transform='translateX(-50%)';
 
  if(!target){
+   // Installation / étape sans cible : panneau en bas pour garder l'app visible.
+   bubble.classList.add('tutorial-bottom');
+   bubble.style.top='auto';
+   bubble.style.bottom='18px';
    focus.hidden=true;
    arrow.hidden=true;
    return;
  }
 
+ const r=target.getBoundingClientRect();
+ const vh=window.innerHeight;
+ const vw=window.innerWidth;
+ const targetCenterY=r.top+r.height/2;
+
+ // Deux positions uniquement : si la cible est en haut, le panneau va en bas, et inversement.
+ const placeBottom=targetCenterY < vh/2;
+ bubble.classList.add(placeBottom?'tutorial-bottom':'tutorial-top');
+
+ if(placeBottom){
+   bubble.style.top='auto';
+   bubble.style.bottom='18px';
+ }else{
+   bubble.style.bottom='auto';
+   bubble.style.top='18px';
+ }
+
  focus.hidden=false;
  arrow.hidden=false;
 
- const r=target.getBoundingClientRect();
  const pad=7;
  focus.style.left=(r.left-pad)+'px';
  focus.style.top=(r.top-pad)+'px';
  focus.style.width=(r.width+pad*2)+'px';
  focus.style.height=(r.height+pad*2)+'px';
 
- // Seuls le repère et la flèche bougent ; le panneau ne bouge jamais.
- const vw=window.innerWidth, vh=window.innerHeight;
+ // Seuls le focus et la flèche suivent la cible.
  const cx=r.left+r.width/2;
- const cy=r.top+r.height/2;
- const bubbleCenterY=vh/2;
-
  arrow.textContent='➜';
  arrow.style.left=Math.min(vw-42,Math.max(10,cx-16))+'px';
 
- if(cy < bubbleCenterY){
+ if(placeBottom){
    arrow.style.top=Math.min(vh-48,Math.max(8,r.bottom+3))+'px';
    arrow.style.transform='rotate(90deg)';
  }else{

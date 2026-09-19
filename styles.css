@@ -963,91 +963,56 @@ body.tutorial-active{
 }
 
 
-/* V3.5.7 — tutoriel fixe, centré, taille identique à chaque slide */
-.tutorial-bubble.tutorial-fixed{
+
+
+/* V3.5.8 — tutoriel hybride : seulement deux positions, taille identique */
+.tutorial-bubble.tutorial-hybrid{
   left:50% !important;
-  top:50% !important;
   right:auto !important;
-  bottom:auto !important;
-  transform:translate(-50%,-50%) !important;
+  transform:translateX(-50%) !important;
   width:min(88vw,430px) !important;
-  height:min(64dvh,520px) !important;
+  height:min(52dvh,430px) !important;
   max-width:430px !important;
-  max-height:520px !important;
+  max-height:430px !important;
   box-sizing:border-box;
   display:grid;
   grid-template-rows:auto auto auto minmax(0,1fr) auto;
   overflow:hidden !important;
 }
-.tutorial-bubble.tutorial-fixed .tutorial-guide-head{margin-bottom:8px}
-.tutorial-bubble.tutorial-fixed .tutorial-mini-progress{margin-bottom:10px}
-.tutorial-bubble.tutorial-fixed h3{margin-bottom:8px}
-.tutorial-bubble.tutorial-fixed .tutorial-text{
+.tutorial-bubble.tutorial-hybrid.tutorial-top{
+  top:18px !important;
+  bottom:auto !important;
+}
+.tutorial-bubble.tutorial-hybrid.tutorial-bottom{
+  top:auto !important;
+  bottom:18px !important;
+}
+.tutorial-bubble.tutorial-hybrid .tutorial-guide-head{margin-bottom:8px}
+.tutorial-bubble.tutorial-hybrid .tutorial-mini-progress{margin-bottom:10px}
+.tutorial-bubble.tutorial-hybrid h3{margin-bottom:8px}
+.tutorial-bubble.tutorial-hybrid .tutorial-text{
   min-height:0;
   overflow:auto;
   overscroll-behavior:contain;
   padding-right:2px;
 }
-.tutorial-bubble.tutorial-fixed .tutorial-actions{
+.tutorial-bubble.tutorial-hybrid .tutorial-actions{
   margin-top:10px !important;
   align-self:end;
 }
-.tutorial-bubble.tutorial-fixed #tutorialNext{
+.tutorial-bubble.tutorial-hybrid #tutorialNext{
   min-height:44px;
 }
 
-/* iPhone : captures fournies par l’utilisateur, recadrées pour le petit écran */
-.install-hero.compact{margin-bottom:10px;padding:9px}
-.ios-shot-grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:8px;
-  margin-top:4px;
-}
-.ios-shot{
-  margin:0;
-  min-width:0;
-  border:1px solid #343c47;
-  border-radius:12px;
-  overflow:hidden;
-  background:#11151a;
-}
-.ios-shot img{
-  display:block;
-  width:100%;
-  aspect-ratio:1.05/1;
-  object-fit:cover;
-  object-position:center;
-}
-.ios-shot figcaption{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  padding:7px 8px;
-  color:#fff;
-  font-size:11px;
-  line-height:1.15;
-}
-.ios-shot figcaption span{
-  width:22px;height:22px;
-  flex:0 0 22px;
-  display:grid;place-items:center;
-  border-radius:50%;
-  background:#eafc35;
-  color:#111;
-  font-size:11px;
-  font-weight:1000;
-}
-.ios-shot figcaption b{
-  font-size:11px;
-  overflow-wrap:anywhere;
-}
-@media(max-width:360px){
-  .tutorial-bubble.tutorial-fixed{
-    width:min(91vw,430px) !important;
-    height:min(68dvh,520px) !important;
-  }
-  .ios-shot figcaption{padding:6px;font-size:10px}
+/* Installation : texte simple, sans captures d’écran */
+.install-hero.compact{
+  margin-bottom:10px;
+  padding:9px;
 }
 
-/* Le bouton d’annulation de la dernière action a été retiré du header. */
+@media(max-width:360px){
+  .tutorial-bubble.tutorial-hybrid{
+    width:min(91vw,430px) !important;
+    height:min(54dvh,430px) !important;
+  }
+}
