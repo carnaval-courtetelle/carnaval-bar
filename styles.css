@@ -1016,3 +1016,42 @@ body.tutorial-active{
     height:min(54dvh,430px) !important;
   }
 }
+
+
+/* V3.5.9 — tuto centré avec léger déplacement vertical */
+.tutorial-bubble.tutorial-float-center{
+  left:50% !important;
+  right:auto !important;
+  bottom:auto !important;
+  transform:translate(-50%,-50%) !important;
+  width:min(88vw,430px) !important;
+  height:min(52dvh,430px) !important;
+  max-width:430px !important;
+  max-height:430px !important;
+  box-sizing:border-box;
+  display:grid;
+  grid-template-rows:auto auto auto minmax(0,1fr) auto;
+  overflow:hidden !important;
+}
+.tutorial-bubble.tutorial-float-center .tutorial-guide-head{margin-bottom:8px}
+.tutorial-bubble.tutorial-float-center .tutorial-mini-progress{margin-bottom:10px}
+.tutorial-bubble.tutorial-float-center h3{margin-bottom:8px}
+.tutorial-bubble.tutorial-float-center .tutorial-text{
+  min-height:0;
+  overflow:auto;
+  overscroll-behavior:contain;
+  padding-right:2px;
+}
+.tutorial-bubble.tutorial-float-center .tutorial-actions{
+  margin-top:10px !important;
+  align-self:end;
+}
+.tutorial-bubble.tutorial-float-center #tutorialNext{
+  min-height:44px;
+}
+@media(max-width:360px){
+  .tutorial-bubble.tutorial-float-center{
+    width:min(91vw,430px) !important;
+    height:min(54dvh,430px) !important;
+  }
+}

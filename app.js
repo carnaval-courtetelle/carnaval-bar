@@ -563,39 +563,37 @@ function positionTutorial(){
 
  $('#tutorialNext').textContent=tutorialStep===tutorialSteps.length-1?'TERMINER ✓':'Suivant →';
 
- bubble.classList.add('tutorial-hybrid');
- bubble.classList.remove('tutorial-fixed','tutorial-top','tutorial-bottom','tutorial-centered');
+ bubble.classList.remove('tutorial-hybrid','tutorial-top','tutorial-bottom','tutorial-centered','tutorial-fixed');
+ bubble.classList.add('tutorial-float-center');
  bubble.style.left='50%';
  bubble.style.right='auto';
+ bubble.style.bottom='auto';
  bubble.style.width='';
- bubble.style.transform='translateX(-50%)';
+ bubble.style.transform='translate(-50%,-50%)';
+
+ const vh=window.innerHeight;
+ const vw=window.innerWidth;
+ let centerY=vh/2;
 
  if(!target){
-   // Installation / étape sans cible : panneau en bas pour garder l'app visible.
-   bubble.classList.add('tutorial-bottom');
-   bubble.style.top='auto';
-   bubble.style.bottom='18px';
+   bubble.style.top=centerY+'px';
    focus.hidden=true;
    arrow.hidden=true;
    return;
  }
 
  const r=target.getBoundingClientRect();
- const vh=window.innerHeight;
- const vw=window.innerWidth;
  const targetCenterY=r.top+r.height/2;
 
- // Deux positions uniquement : si la cible est en haut, le panneau va en bas, et inversement.
- const placeBottom=targetCenterY < vh/2;
- bubble.classList.add(placeBottom?'tutorial-bottom':'tutorial-top');
+ // Fenêtre globalement centrée avec seulement un léger déplacement vertical.
+ const maxShift=Math.min(80, Math.max(45, vh*0.09));
+ let shift=0;
+ if(targetCenterY < vh*0.42) shift=maxShift;
+ else if(targetCenterY > vh*0.58) shift=-maxShift;
+ else shift=(vh/2-targetCenterY)*0.35;
 
- if(placeBottom){
-   bubble.style.top='auto';
-   bubble.style.bottom='18px';
- }else{
-   bubble.style.bottom='auto';
-   bubble.style.top='18px';
- }
+ centerY=Math.max(140, Math.min(vh-140, vh/2+shift));
+ bubble.style.top=centerY+'px';
 
  focus.hidden=false;
  arrow.hidden=false;
@@ -606,12 +604,11 @@ function positionTutorial(){
  focus.style.width=(r.width+pad*2)+'px';
  focus.style.height=(r.height+pad*2)+'px';
 
- // Seuls le focus et la flèche suivent la cible.
  const cx=r.left+r.width/2;
  arrow.textContent='➜';
  arrow.style.left=Math.min(vw-42,Math.max(10,cx-16))+'px';
 
- if(placeBottom){
+ if(targetCenterY < centerY){
    arrow.style.top=Math.min(vh-48,Math.max(8,r.bottom+3))+'px';
    arrow.style.transform='rotate(90deg)';
  }else{
