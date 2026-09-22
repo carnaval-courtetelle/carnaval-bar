@@ -5,14 +5,14 @@ let products = structuredClone(window.DEFAULT_PRODUCTS), cat='softs', items=[], 
 const tapBursts=new Map();
 const mixerList=()=>{
  const available=new Set(products.filter(p=>p.cat==='softs').map(p=>p.name));
- const preferred=["Coca","Tonic","Jus d’orange","Thé froid pêche","Limonade","Grapefruit","Maté","Eau gazeuse","Eau plate"];
+ const preferred=["Coca","Tonic","Red Bull","Jus d’orange","Thé froid pêche","Limonade","Grapefruit","Maté","Eau gazeuse","Eau plate"];
  return preferred.filter(x=>available.has(x)).concat('Sans soft');
 };
 
 function mixerIcon(name){
  const icons={
   "Coca":"🥤","Tonic":"🫧","Jus d’orange":"🍊","Thé froid pêche":"🍑",
-  "Limonade":"🍋","Grapefruit":"🍊","Maté":"🧉","Eau gazeuse":"🫧",
+  "Limonade":"🍋","Grapefruit":"🍊","Maté":"🧉","Red Bull":"⚡","Eau gazeuse":"🫧",
   "Eau plate":"💧","Sans soft":"🚫"
  };
  return icons[name]||"🥤";
@@ -149,10 +149,18 @@ function render(){
  $('#count').textContent=`${items.length} article${items.length!==1?'s':''}`;$('#total').textContent=money(total());$('#retGlassQty').textContent=returns.glass?`×${returns.glass}`:'';$('#retLargeQty').textContent=returns.large?`×${returns.large}`:'';
  updatePayState();
 }
+let softOpenedAt=0;
+let softPointerId=null;
+let softPointerArmed=false;
+const SOFT_GUARD_MS=260;
+
 function openProduct(p,b){
  hapticTap();
  if(p.soft){
    pending=p;
+   softOpenedAt=performance.now();
+   softPointerId=null;
+   softPointerArmed=false;
    $('#softTitle').textContent=p.name+' · quel soft ?';
    $('#softs').innerHTML=mixerList().map(s=>`<button data-soft="${s}" class="${s==='Sans soft'?'soft-none':''}"><span class="soft-icon">${mixerIcon(s)}</span><span class="soft-label">${s}</span></button>`).join('');
    $('#softDlg').showModal();
@@ -246,8 +254,88 @@ function removeOneProduct(id){
    e.preventDefault();e.stopPropagation();
  },true);
 })();
-$('#softs').onclick=e=>{const b=e.target.closest('button');if(!b)return;hapticTap();addItem(pending,null,b.dataset.soft);$('#softDlg').close()};
-function addItem(p,button=null,soft=''){if(p.soft&&!soft){openProduct(p,button);return}remember();items.push({...p,soft});updateSummary();updateProductQty(p.id);burstFeedback(p,soft)}
+// Samsung/Android: empêcher le toucher qui ouvre le dialogue de sélectionner
+// immédiatement un soft situé sous le doigt ("click-through").
+const softZone=$('#softs');
+
+function confirmSoftChoice(button){
+ if(!button||!pending)return;
+ const soft=button.dataset.soft;
+ if(!soft||!mixerList().includes(soft))return;
+ const product=pending;
+ pending=null;
+ softPointerArmed=false;
+ softPointerId=null;
+ hapticTap();
+ $('#softDlg').close();
+ addItem(product,null,soft);
+}
+
+softZone.addEventListener('pointerdown',e=>{
+ const b=e.target.closest('button[data-soft]');
+ if(!b)return;
+ // Un vrai choix doit commencer APRES l'ouverture du dialogue.
+ if(performance.now()-softOpenedAt<SOFT_GUARD_MS){
+   softPointerArmed=false;
+   softPointerId=null;
+   e.preventDefault();
+   return;
+ }
+ softPointerArmed=true;
+ softPointerId=e.pointerId;
+},{passive:false});
+
+softZone.addEventListener('pointerup',e=>{
+ const b=e.target.closest('button[data-soft]');
+ if(!b)return;
+ if(!softPointerArmed||e.pointerId!==softPointerId){
+   e.preventDefault();
+   e.stopPropagation();
+   return;
+ }
+ softPointerArmed=false;
+ softPointerId=null;
+ e.preventDefault();
+ e.stopPropagation();
+ confirmSoftChoice(b);
+},{passive:false});
+
+softZone.addEventListener('pointercancel',()=>{
+ softPointerArmed=false;
+ softPointerId=null;
+});
+
+// Bloque les clicks synthétiques tactiles. Le clavier reste accessible.
+softZone.addEventListener('click',e=>{
+ const b=e.target.closest('button[data-soft]');
+ if(!b)return;
+ if(e.detail===0){
+   if(performance.now()-softOpenedAt>=SOFT_GUARD_MS)confirmSoftChoice(b);
+   return;
+ }
+ e.preventDefault();
+ e.stopPropagation();
+},true);
+
+$('#softDlg').addEventListener('close',()=>{
+ pending=null;
+ softPointerArmed=false;
+ softPointerId=null;
+});
+function addItem(p,button=null,soft=''){
+ if(p.soft){
+   const validSofts=mixerList();
+   if(!soft||!validSofts.includes(soft)){
+     openProduct(p,button);
+     return;
+   }
+ }
+ remember();
+ items.push({...p,soft});
+ updateSummary();
+ updateProductQty(p.id);
+ burstFeedback(p,soft);
+}
 
 function cartRender(){
  const groups=groupItems();let lastCat='';
